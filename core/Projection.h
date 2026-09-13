@@ -20,6 +20,16 @@ inline Vec3 unit(Vec3 a) {
     return {a.x/n,a.y/n,a.z/n};
 }
 struct Camera { Vec3 position, direction, up; double field; };
+// COM camera setters normalize vectors and can change their final floating-point bits.
+inline bool sameCameraValue(double a,double b) {
+    return std::isfinite(a)&&std::isfinite(b)&&std::abs(a-b)<=16*std::numeric_limits<double>::epsilon()*(std::max)(1.0,(std::max)(std::abs(a),std::abs(b)));
+}
+inline bool sameCameraValue(Vec3 a,Vec3 b) {
+    return sameCameraValue(a.x,b.x)&&sameCameraValue(a.y,b.y)&&sameCameraValue(a.z,b.z);
+}
+inline bool sameCameraValue(const Camera& a,const Camera& b) {
+    return sameCameraValue(a.position,b.position)&&sameCameraValue(a.direction,b.direction)&&sameCameraValue(a.up,b.up)&&sameCameraValue(a.field,b.field);
+}
 enum class Axis { Horizontal, Vertical, Minimum, Maximum };
 struct Convention { Axis axis; bool degrees; bool halfAngle; };
 inline std::string name(Convention c) {
@@ -43,6 +53,29 @@ inline Pixel project(Vec3 point, Camera camera, Convention convention, double w,
     double focal=extent(convention,w,h)/(2*std::tan(angle/2));
     return {w/2+focal*dot(d,r)/depth,h/2-focal*dot(d,u)/depth};
 }
+// IronCAD's SDK view transform uses pixel endpoints, then truncates in render pixels.
+// Keep render pixels separate from physical pixels when Windows virtualizes the host DPI.
+inline Pixel projectSdk(Vec3 point,Camera camera,Convention convention,double rw,double rh,double pw,double ph,bool integer=true) {
+    if(rw<=2||rh<=2||pw<=0||ph<=0)throw std::runtime_error("Invalid render extent");
+    Pixel p=project(point,camera,convention,rw-1,rh-1);
+    p.x*=(rw-2)/(rw-1);p.y*=(rh-2)/(rh-1);
+    if(integer){p.x=std::trunc(p.x);p.y=std::trunc(p.y);}
+    return {p.x*pw/rw,p.y*ph/rh};
+}
+inline Rect sdkImageRect(double iw,double ih,double rw,double rh,double pw,double ph) {
+    if(iw<=0||ih<=0||rw<=2||rh<=2||pw<=0||ph<=0)throw std::runtime_error("Invalid image viewport");
+    double w=(rw-2)*pw/rw,h=(rh-2)*ph/rh,s=(std::min)(w/iw,h/ih);
+    return {(w-iw*s)/2,(h-ih*s)/2,iw*s,ih*s};
+}
+inline double sdkImageField(double focal,double iw,double ih,double rw,double rh,double pw,double ph,Convention c) {
+    Rect box=sdkImageRect(iw,ih,rw,rh,pw,ph);
+    if(!std::isfinite(focal)||focal<=0)throw std::runtime_error("Invalid focal length");
+    double kx=(rw-2)/(rw-1)*pw/rw,ky=(rh-2)/(rh-1)*ph/rh;
+    // Uniform image scaling; minimize corner distance from SDK endpoint anisotropy.
+    double f=focal*box.w/iw*(iw*iw*kx+ih*ih*ky)/(iw*iw*kx*kx+ih*ih*ky*ky);
+    double rad=2*std::atan(extent(c,rw-1,rh-1)/(2*f));
+    return rad/(c.halfAngle?2:1)/(c.degrees?3.14159265358979323846/180:1);
+}
 inline Rect contain(double iw,double ih,double vw,double vh) {
     if(!(iw>0&&ih>0&&vw>0&&vh>0)) throw std::runtime_error("Invalid image dimensions");
     double s=(std::min)(vw/iw,vh/ih);
@@ -54,7 +87,7 @@ inline double imageField(double focal,double iw,double ih,double vw,double vh,Co
     double rad=2*std::atan(extent(c,vw,vh)/(2*focal*box.w/iw));
     return rad/(c.halfAngle?2:1)/(c.degrees?3.14159265358979323846/180:1);
 }
-struct Observation { Camera camera; Vec3 world; Pixel actual; double width,height; };
+struct Observation { Camera camera; Vec3 world; Pixel actual; double width,height; double renderWidth=0,renderHeight=0; };
 struct Fit { Convention convention; double maxError; };
 inline std::vector<Fit> fit(const std::vector<Observation>& observations) {
     std::vector<Fit> fits;
@@ -62,7 +95,7 @@ inline std::vector<Fit> fit(const std::vector<Observation>& observations) {
     for(int a=0;a<4;++a) for(int d=0;d<2;++d) for(int h=0;h<2;++h) {
         Convention c{Axis(a),d!=0,h!=0}; double error=0;
         try { for(const auto& o:observations) {
-            Pixel p=project(o.world,o.camera,c,o.width,o.height);
+            Pixel p=o.renderWidth>0?projectSdk(o.world,o.camera,c,o.renderWidth,o.renderHeight,o.width,o.height):project(o.world,o.camera,c,o.width,o.height);
             if(!std::isfinite(o.actual.x)||!std::isfinite(o.actual.y)) throw std::runtime_error("Invalid observation");
             error=(std::max)(error,std::hypot(p.x-o.actual.x,p.y-o.actual.y));
         }} catch(const std::exception&) {error=std::numeric_limits<double>::infinity();}

@@ -33,10 +33,10 @@ if ($Unregister) {
       <siteclsid>$clsid</siteclsid>
       <modulever></modulever>
       <platformver></platformver>
-      <autoload></autoload>
+      <autoload>true</autoload>
       <system>true</system>
-      <displayname><default>PhotoMatchProto</default></displayname>
-      <description><default>PhotoMatch Proto 0 camera and vertex diagnostics</default></description>
+      <displayname><default>IronCAD PhotoMatch</default></displayname>
+      <description><default>Photo matching for IronCAD</default></description>
     </AddIn>
 "@
     $entry=($entry -replace '\r?\n',"`r`n")+"`r`n"
@@ -58,6 +58,6 @@ if ($updated -cne $original) {
 $matches=@($actual.IronCAD.AddIns.AddIn | Where-Object {$_.siteclsid -eq $clsid})
 if ($Unregister) {
     if ($matches.Count -ne 0) { throw 'PhotoMatch host entry removal failed.' }
-} elseif ($matches.Count -ne 1 -or $matches[0].inprocserver -ne 'PhotoMatchProto.dll') { throw 'Host config verification failed.' }
+} elseif ($matches.Count -ne 1 -or $matches[0].inprocserver -ne 'PhotoMatchProto.dll' -or $matches[0].autoload -ne 'true') { throw 'Host config verification failed.' }
 & (Join-Path $PSScriptRoot 'configure-manifest.ps1') -Unregister:$Unregister
 Write-Output $(if($Unregister){'PhotoMatch host config entry removed; other entries preserved.'}else{'PhotoMatch host config verified. Restart IronCAD to reload the application list.'})

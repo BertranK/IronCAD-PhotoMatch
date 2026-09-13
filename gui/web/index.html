@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>IronCAD PhotoMatch</title><link rel="stylesheet" href="tailwind.css">
+</head>
+<body class="h-screen overflow-hidden">
+  <div class="flex h-full flex-col">
+    <header class="flex h-16 shrink-0 items-center justify-between border-b border-line px-6">
+      <div class="flex items-center gap-3"><div class="flex size-8 items-center justify-center rounded-lg bg-mint text-ink"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 8V3h5m8 0h5v5m0 8v5h-5M8 21H3v-5"/><circle cx="12" cy="12" r="4"/><path d="M12 5v3m0 8v3M5 12h3m8 0h3"/></svg></div><span class="text-lg font-semibold tracking-tight">PhotoMatch</span><span class="ml-1 rounded border border-line px-1.5 py-0.5 text-[9px] tracking-wider text-slate-500">PROTO</span></div>
+      <div class="header-actions flex items-center gap-4"><label class="language-control"><span aria-hidden="true">◎</span><select id="language" aria-label="언어" data-i18n-aria-label="언어"><option value="system" data-i18n="시스템 설정">시스템 설정</option><option value="ko">한국어</option><option value="en">English</option></select></label><div class="flex items-center gap-2"><span id="connectionDot" class="dot"></span><span id="connection" class="text-xs text-slate-400"><span data-i18n="연결 확인 중">연결 확인 중</span></span></div><button id="save" class="btn" disabled><span data-i18n="결과 저장">결과 저장</span><span class="text-slate-500">↗</span></button></div>
+    </header>
+    <nav class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-panel/50 px-6">
+      <div class="flex items-center gap-7"><span id="stepImage" class="step active"><span class="coordinate">01</span><span data-i18n="사진">사진</span></span><span class="text-slate-700">/</span><span id="stepPoints" class="step"><span class="coordinate">02</span><span data-i18n="대응점">대응점</span></span><span class="text-slate-700">/</span><span id="stepResult" class="step"><span class="coordinate">03</span><span data-i18n="정합">정합</span></span></div>
+      <button id="openImage" class="mini"><span data-i18n="＋ 사진 열기">＋ 사진 열기</span></button>
+    </nav>
+    <main class="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_280px]">
+      <aside class="flex min-h-0 flex-col border-r border-line bg-panel/40">
+        <div class="flex items-center justify-between px-5 pt-6 pb-4"><h2 class="font-medium"><span data-i18n="대응점">대응점</span></h2><span id="pairCount" class="coordinate text-slate-500">0 / 0</span></div>
+        <div class="px-4 pb-4"><button id="pick" class="btn primary w-full" disabled><span data-i18n="＋ 모델 점 선택">＋ 모델 점 선택</span></button></div>
+        <div id="points" class="min-h-0 flex-1 overflow-y-auto px-3"><div class="px-3 pt-8 text-center text-xs text-slate-600"><span data-i18n="선택한 점이 여기에 표시됩니다">선택한 점이 여기에 표시됩니다</span></div></div>
+        <div class="border-t border-line p-4"><p class="section-label mb-2" data-i18n="DOCUMENT">DOCUMENT</p><p id="document" class="truncate text-xs text-slate-400">—</p></div>
+      </aside>
+      <section class="flex min-h-0 flex-col">
+        <div class="flex h-12 shrink-0 items-center justify-between px-5"><div class="min-w-0"><span id="imageName" class="text-xs text-slate-300"><span data-i18n="사진">사진</span></span><span id="imageSize" class="ml-3 coordinate text-slate-600"></span></div><div class="flex items-center gap-1"><button id="zoomOut" class="mini" title="축소" data-i18n-title="축소" aria-label="축소" data-i18n-aria-label="축소">−</button><span id="zoom" class="coordinate w-12 text-center text-slate-400">100%</span><button id="zoomIn" class="mini" title="확대" data-i18n-title="확대" aria-label="확대" data-i18n-aria-label="확대">＋</button><button id="fit" class="mini ml-2"><span data-i18n="맞춤">맞춤</span></button></div></div>
+        <div id="stage" class="relative min-h-0 flex-1 overflow-hidden border-y border-line">
+          <canvas id="photoCanvas"></canvas>
+          <div id="empty" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+            <div class="mb-6 flex size-20 items-center justify-center rounded-2xl border border-line bg-panel text-mint"><svg width="36" height="36" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="4" y="5" width="24" height="22" rx="3"/><circle cx="11" cy="12" r="2"/><path d="m5 24 7-7 5 4 5-8 6 9"/></svg></div>
+            <p class="mb-2 text-xl font-medium tracking-tight"><span data-i18n="사진에서 시작하세요">사진에서 시작하세요</span></p><p class="mb-7 text-xs text-slate-500">PNG · JPG · BMP · AVIF</p><button id="openEmpty" class="btn primary pointer-events-auto"><span data-i18n="사진 열기">사진 열기</span><span>↗</span></button>
+          </div>
+          <div id="activePoint" class="pointer-events-none absolute top-4 left-4 hidden rounded-lg border border-mint/30 bg-ink/90 px-3 py-2 text-xs text-mint"></div>
+          <div id="toast" role="status" class="pointer-events-none absolute right-4 bottom-4 left-4 hidden rounded-xl border border-line bg-panel px-4 py-3 text-xs shadow-xl"></div>
+        </div>
+        <div class="flex h-10 shrink-0 items-center justify-between px-5 text-[10px] text-slate-500"><span id="canvasHint"><span data-i18n="스크롤 확대 · 우클릭 이동">스크롤 확대 · 우클릭 이동</span></span><span id="cursor" class="coordinate">—</span></div>
+      </section>
+      <aside class="overflow-y-auto border-l border-line bg-panel/40 p-5">
+        <p class="section-label mb-5" data-i18n="ALIGNMENT">ALIGNMENT</p>
+        <h2 class="mb-2 text-base font-medium"><span data-i18n="카메라 정합">카메라 정합</span></h2>
+        <div class="mb-6 flex items-center gap-2 text-xs text-slate-500"><span id="alignmentDot" class="dot"></span><span id="alignmentStatus"><span data-i18n="검증 대기">검증 대기</span></span></div>
+        <button id="overlay" class="btn primary mb-2 w-full" disabled><span data-i18n="IronCAD에서 확인 ↗">IronCAD에서 확인 ↗</span></button>
+        <button id="restore" class="btn mb-6 w-full" disabled><span data-i18n="원래 보기로">원래 보기로</span></button>
+        <details class="border-t border-line py-4"><summary class="text-xs font-medium text-slate-300"><span data-i18n="카메라 조정">카메라 조정</span></summary>
+          <div class="mt-5 space-y-4"><label class="block"><span class="field-label"><span data-i18n="위치 · X Y Z">위치 · X Y Z</span></span><input id="position" class="coordinate" aria-label="카메라 위치" data-i18n-aria-label="카메라 위치" placeholder="—"></label><label class="block"><span class="field-label"><span data-i18n="방향 · X Y Z">방향 · X Y Z</span></span><input id="direction" class="coordinate" aria-label="카메라 방향" data-i18n-aria-label="카메라 방향" placeholder="—"></label><label class="block"><span class="field-label"><span data-i18n="위쪽 · X Y Z">위쪽 · X Y Z</span></span><input id="up" class="coordinate" aria-label="카메라 위쪽" data-i18n-aria-label="카메라 위쪽" placeholder="—"></label><label class="block"><span class="field-label"><span data-i18n="화각 · SDK 값">화각 · SDK 값</span></span><input id="field" class="coordinate" aria-label="카메라 화각" data-i18n-aria-label="카메라 화각" placeholder="—"></label><button id="apply" class="btn w-full" disabled><span data-i18n="카메라 적용">카메라 적용</span></button></div>
+        </details>
+        <details class="border-t border-line py-4"><summary class="text-xs font-medium text-slate-300"><span data-i18n="진단">진단</span></summary>
+          <div class="mt-5 space-y-3"><div class="grid grid-cols-2 gap-2"><button id="capture" class="mini" disabled><span data-i18n="상태 보관">상태 보관</span></button><button id="measure" class="mini" disabled><span data-i18n="투영 측정">투영 측정</span></button></div><label class="block"><span class="field-label"><span data-i18n="초점거리 · 원본 px">초점거리 · 원본 px</span></span><input id="focal" class="coordinate" value="1000" aria-label="초점거리" data-i18n-aria-label="초점거리"></label><button id="background" class="mini w-full" disabled><span data-i18n="배경 경로 시험">배경 경로 시험</span></button><div id="metrics" class="coordinate break-all text-slate-500">—</div><pre id="logs" class="max-h-48 overflow-auto whitespace-pre-wrap text-[10px] leading-relaxed text-slate-500"></pre></div>
+        </details>
+      </aside>
+    </main>
+    <footer class="flex h-7 shrink-0 items-center justify-between border-t border-line px-5 text-[9px] tracking-wide text-slate-600"><span>IRONCAD PHOTOMATCH</span><span id="footerState"><span data-i18n="연결 대기">연결 대기</span></span></footer>
+  </div>
+  <script src="localization.js"></script><script src="coordinates.js"></script><script src="app.js"></script>
+</body>
+</html>

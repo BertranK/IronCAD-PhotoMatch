@@ -8,3 +8,7 @@ evidence/*
 !evidence/.gitkeep
 __pycache__/
 *.pyc
+
+.venv/
+node_modules/
+gui/.runtime/

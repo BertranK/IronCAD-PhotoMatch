@@ -23,10 +23,10 @@
    <PrecompiledHeader>NotUsing</PrecompiledHeader><PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;_WINDLL;_AFXDLL;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
    <AdditionalIncludeDirectories>$(IronCadRoot)bin;$(IronCadRoot)ICAPI\Samples\cplusplus\Events;$(IronCadRoot)ICAPI\Samples\cplusplus\SelectionTool;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
   </ClCompile>
-  <Link><SubSystem>Windows</SubSystem><ModuleDefinitionFile>src\PhotoMatchProto.def</ModuleDefinitionFile><AdditionalDependencies>gdiplus.lib;comsuppw.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+  <Link><SubSystem>Windows</SubSystem><ModuleDefinitionFile>src\PhotoMatchProto.def</ModuleDefinitionFile><AdditionalDependencies>gdiplus.lib;advapi32.lib;comsuppw.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
  </ItemDefinitionGroup>
- <ItemGroup><ClCompile Include="src\Addin.cpp"/><ClCompile Include="src\ProtoDialog.cpp"/></ItemGroup>
- <ItemGroup><ClInclude Include="src\StdAfx.h"/><ClInclude Include="src\ProtoDialog.h"/><ClInclude Include="core\Projection.h"/></ItemGroup>
+ <ItemGroup><ClCompile Include="src\Addin.cpp"/><ClCompile Include="src\HostSession.cpp"/><ClCompile Include="src\PipeServer.cpp"/></ItemGroup>
+ <ItemGroup><ClInclude Include="src\StdAfx.h"/><ClInclude Include="src\HostSession.h"/><ClInclude Include="core\Projection.h"/></ItemGroup>
  <ItemGroup><ResourceCompile Include="src\PhotoMatchProto.rc"/></ItemGroup>
  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

@@ -1,0 +1,57 @@
+@import "tailwindcss";
+@source "./index.html";
+@source "./app.js";
+@theme { --color-ink: #101416; --color-panel: #191e21; --color-line: #30383c; --color-mint: #b8f582; }
+@layer base {
+  :root { color-scheme: dark; --surface-text: #e6ebed; --stage-bg: #121719; --stage-dot: #333c41; }
+  :root[data-theme="light"] {
+    color-scheme: light; --color-ink: #f5f7f8; --color-panel: #ffffff; --color-line: #ccd5d9; --color-mint: #276b37;
+    --surface-text: #18252c; --stage-bg: #e9eef0; --stage-dot: #bbc8ce;
+    --color-slate-300: #334955; --color-slate-400: #425965; --color-slate-500: #536773; --color-slate-600: #596b76; --color-slate-700: #768791;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) { color-scheme: light; --color-ink: #f5f7f8; --color-panel: #fff; --color-line: #ccd5d9; --color-mint: #276b37; --surface-text: #18252c; --stage-bg: #e9eef0; --stage-dot: #bbc8ce; }
+  }
+}
+@layer base {
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; color: var(--surface-text); background: var(--color-ink); font-size: 13px; }
+  button { cursor: pointer; transition: background .15s, border-color .15s; }
+  button:disabled { opacity: .35; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--color-mint); outline-offset: 3px; }
+  button:not(:disabled):hover { filter: brightness(1.13); }
+  input { min-width: 0; color: var(--surface-text); background: var(--color-ink); border: 1px solid var(--color-line); border-radius: 7px; padding: 8px 9px; width: 100%; font-variant-numeric: tabular-nums; }
+  summary { cursor: pointer; list-style: none; }
+  summary::after { content: '+'; float: right; color: #8c999e; }
+  details[open] > summary::after { content: '−'; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #3a4449; border-radius: 4px; }
+}
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 py-2.5 text-xs font-medium; }
+  .primary { @apply border-mint bg-mint text-ink; }
+  .mini { @apply rounded-md border border-line px-2.5 py-1.5 text-xs text-slate-300; }
+  .section-label { @apply text-[10px] font-semibold tracking-[.18em] text-slate-500 uppercase; }
+  .step { @apply flex items-center gap-2 text-xs text-slate-500; }
+  .step.active { @apply text-mint; }
+  .point-row { @apply w-full rounded-xl border border-transparent p-3 text-left; }
+  .point-row.selected { @apply border-mint/40 bg-mint/5; }
+  .point-row:not(.selected):hover { @apply bg-white/5; }
+  .dot { @apply inline-block size-1.5 rounded-full bg-slate-600; }
+  .dot.ready { @apply bg-mint; }
+  .field-label { @apply mb-1.5 block text-[11px] text-slate-400; }
+}
+#stage { background-color: var(--stage-bg); background-image: radial-gradient(var(--stage-dot) .7px, transparent .7px); background-size: 18px 18px; }
+#photoCanvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.coordinate { font-family: Consolas, monospace; font-size: 11px; font-variant-numeric: tabular-nums; }
+.language-control { display:flex; align-items:center; gap:5px; border:1px solid var(--color-line); border-radius:7px; padding:5px 7px; }
+.language-control select { background:var(--color-panel); color:var(--surface-text); font:inherit; font-size:12px; border:0; max-width:105px; cursor:pointer; }
+@media (max-width: 1050px) { main { grid-template-columns:180px minmax(0,1fr) 220px; } .header-actions { gap:10px; } }
+@media (max-width: 800px) {
+  main { grid-template-columns:160px minmax(0,1fr); grid-template-rows:minmax(280px,1fr) auto; overflow-y:auto; }
+  main > aside:last-child { grid-column:1 / -1; max-height:170px; border-top:1px solid var(--color-line); padding:12px; }
+  main > aside:last-child > button { width:auto; margin-right:8px; }
+  main > aside:last-child > .section-label { display:none; }
+  header { padding-inline:12px; } .header-actions > div { display:none; }
+  nav { padding-inline:12px; } nav > div { gap:10px; }
+}
