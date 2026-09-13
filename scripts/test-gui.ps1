@@ -9,6 +9,6 @@ Push-Location $protoRoot
 try {
     & (Join-Path $protoRoot '.venv\Scripts\python.exe') -m unittest discover -s tests -p 'test_*.py'
     if($LASTEXITCODE -ne 0){throw 'Python/pipe tests failed.'}
-    & node --test tests/image-coordinates.test.cjs
+    & node --test tests/image-coordinates.test.cjs tests/localization.test.cjs tests/gui-display.test.cjs
     if($LASTEXITCODE -ne 0){throw 'Photo coordinate tests failed.'}
 } finally {Pop-Location}

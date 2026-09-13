@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'gui'))
 from bridge import Bridge, BridgeError
 
@@ -27,6 +28,13 @@ class TransportTests(unittest.TestCase):
     def test_independent_clients(self):
         for i in range(5):
             self.assertEqual({'client':i},Bridge(self.host).call('echo',args={'client':i}))
+
+    def test_simultaneous_clients_do_not_lose_connection_race(self):
+        def request(i):
+            return Bridge(self.host).call('echo',args={'client':i})
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results=list(pool.map(request,range(32)))
+        self.assertEqual([{'client':i} for i in range(32)],results)
 
     def test_large_response(self):
         self.assertEqual('x'*200000,Bridge(self.host).call('echo',args={'large':True})['payload'])

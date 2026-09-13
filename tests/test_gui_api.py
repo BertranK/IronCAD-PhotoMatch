@@ -33,6 +33,17 @@ class ApiTests(unittest.TestCase):
     def test_new_capture_clears_matches(self):
         api=Api();api._accept({'session':'a','capture_id':1});api._points={'P1':[1,2]}
         api._accept({'session':'a','capture_id':2});self.assertEqual({},api._points)
+
+    def test_restore_response_must_confirm_restored_state(self):
+        api=Api(1)
+        failed={'session':'old','capture_id':1,'captured':True,'restored':False}
+        api._bridge=FakeBridge(failed)
+        self.assertFalse(api.call('restore','old')['ok'])
+        target=FakeBridge({'session':'new','capture_id':1})
+        old=api._bridge;old.host=1
+        with patch('app.Bridge',return_value=target),patch('app.available_hosts',return_value=[1,2]):
+            with self.assertRaises(ValueError):api._activate_host(2)
+        self.assertIs(old,api._bridge)
     def test_document_switch_rejects_late_photo_click(self):
         api=Api();api._image={'width':750,'height':750}
         api._accept({'session':'a','capture_id':1})

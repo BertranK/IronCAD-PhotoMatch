@@ -55,8 +55,8 @@ void PhotoOverlay::Align(HWND host) {
     SetWindowPos(&wndTop,p.x,p.y,r.right,r.bottom,SWP_NOACTIVATE|SWP_SHOWWINDOW);Invalidate(FALSE);
 }
 void PhotoOverlay::OnPaint() {
-    CPaintDC dc(this);CRect r;GetClientRect(&r);dc.FillSolidRect(r,RGB(1,2,3));if(image.IsNull()||r.IsRectEmpty())return;
-    Rect b=contain(image.GetWidth(),image.GetHeight(),r.Width(),r.Height());
+    PhysicalPixels scope;CPaintDC dc(this);CRect r;GetClientRect(&r);dc.FillSolidRect(r,RGB(1,2,3));if(image.IsNull()||r.IsRectEmpty())return;
+    Rect b=imageRect;if(b.w<=0||b.h<=0)return;
     dc.SetStretchBltMode(HALFTONE);SetBrushOrgEx(dc.GetSafeHdc(),0,0,nullptr);
     image.Draw(dc.GetSafeHdc(),int(std::round(b.x)),int(std::round(b.y)),int(std::round(b.w)),int(std::round(b.h)));
     // The frame identifies the effective image region, including letterboxing.
@@ -190,7 +190,7 @@ void HostSession::Draw(IZRender* render) {
     for(int i=0;i<8;++i){double depth=10+5*(i%3),x=(i&1)?2:-2,y=(i&2)?1.5:-1.5;
         Vec3 world{c.position.x+f.x*depth+r.x*x+u.x*y,c.position.y+f.y*depth+r.y*x+u.y*y,c.position.z+f.z*depth+r.z*x+u.z*y};
         LONG px=0,py=0,pz=0;checked(render->XformWorldToView2(world.x,world.y,world.z,&px,&py,&pz));
-        observations_.push_back({c,world,{px*sx,py*sy},double(physical.Width()),double(physical.Height())});
+        observations_.push_back({c,world,{px*sx,py*sy},double(physical.Width()),double(physical.Height()),double(rw),double(rh)});
         // Model-space doubles are diagnostic only: the render matrix is not assumed to be identity.
         double mx=0,my=0,mz=0;HRESULT modelHr=render->XformModelToView3(world.x,world.y,world.z,&mx,&my,&mz);
         if(i)diagnostics<<',';diagnostics<<"{\"world_integer_px\":["<<px<<','<<py<<"],\"model_double_hresult\":"<<modelHr;
@@ -254,11 +254,14 @@ void HostSession::Photo(const CString& path,double focal) {
 void HostSession::UpdateOverlay() {
     if(!overlay_.GetSafeHwnd())return;CheckContext();IZCameraPtr active;checked(cameras_->get_ActiveCamera(&active));
     if(!sameObject(active,test_)){overlay_.Clear();throw std::runtime_error("Active camera changed; photo hidden");}
-    HWND host=GraphicsWindow();CRect size=clientRect(host);if(size.IsRectEmpty()){overlay_.ShowWindow(SW_HIDE);return;}
-    if(lastW_!=size.Width()||lastH_!=size.Height()){
+    HWND host=GraphicsWindow();CRect size=clientRect(host),renderSize;::GetClientRect(host,&renderSize);
+    if(size.IsRectEmpty()||renderSize.Width()<=2||renderSize.Height()<=2){overlay_.ShowWindow(SW_HIDE);return;}
+    if(lastW_!=size.Width()||lastH_!=size.Height()||lastRenderW_!=renderSize.Width()||lastRenderH_!=renderSize.Height()){
         auto result=fit(observations_);if(!resolved(result))throw std::runtime_error("FOV no longer resolved");
-        double field=imageField(imageFocal_,overlay_.image.GetWidth(),overlay_.image.GetHeight(),size.Width(),size.Height(),result[0].convention);
-        checked(test_->put_FieldOfView(field));lastW_=size.Width();lastH_=size.Height();checked(scene_->Redraw());
+        double iw=overlay_.image.GetWidth(),ih=overlay_.image.GetHeight(),rw=renderSize.Width(),rh=renderSize.Height();
+        overlay_.imageRect=sdkImageRect(iw,ih,rw,rh,size.Width(),size.Height());
+        double field=sdkImageField(imageFocal_,iw,ih,rw,rh,size.Width(),size.Height(),result[0].convention);
+        checked(test_->put_FieldOfView(field));lastW_=size.Width();lastH_=size.Height();lastRenderW_=rw;lastRenderH_=rh;checked(scene_->Redraw());
     }overlay_.Align(host);
 }
 void HostSession::Background(const CString& path) {
@@ -286,7 +289,7 @@ std::string HostSession::Report() {
         for(int j=0;j<16;++j){if(j)o<<',';o<<p.matrix[j];}o<<"]}";
     }o<<"],\"observations\":[";
     for(size_t i=0;i<observations_.size();++i){auto& v=observations_[i];if(i)o<<',';o<<"{\"camera\":"<<jsonCamera(v.camera)<<",\"world\":"<<jsonVec(v.world)
-        <<",\"actual_physical_px\":["<<v.actual.x<<','<<v.actual.y<<"],\"viewport\":["<<v.width<<','<<v.height<<"]}";}
+        <<",\"actual_physical_px\":["<<v.actual.x<<','<<v.actual.y<<"],\"viewport\":["<<v.width<<','<<v.height<<"],\"render_size\":["<<v.renderWidth<<','<<v.renderHeight<<"]}";}
     auto fits=fit(observations_);o<<"],\"fov_resolved\":"<<(resolved(fits)?"true":"false")<<",\"fov_candidates\":[";
     for(size_t i=0;i<fits.size();++i){if(i)o<<',';o<<"{\"name\":"<<quote(name(fits[i].convention))<<",\"max_error_px\":";
         if(std::isfinite(fits[i].maxError))o<<fits[i].maxError;else o<<"null";o<<'}';}
@@ -320,9 +323,12 @@ nlohmann::json HostSession::Snapshot() {
     out["session"]=SessionId();out["capture_id"]=captureId_;out["captured"]=captured_;
     out["picking"]=bool(interactor_);out["test_camera"]=bool(test_);out["measuring"]=measuring_;
     out["logs"]=logs_;out["host_pid"]=GetCurrentProcessId();out["document"]=nullptr;out["camera"]=nullptr;
+    out["projection_coordinate_rule"]="sdk_pixel_endpoints_truncate_then_physical_scale";
+    if(overlay_.GetSafeHwnd()){auto r=overlay_.imageRect;out["photo_rectangle_physical"]={r.x,r.y,r.w,r.h};out["photo_render_size"]={lastRenderW_,lastRenderH_};}
     if(observedDoc_){CComBSTR name;checked(observedDoc_->get_Name(&name));out["document"]=utf8(name);}
     if(captured_&&cameras_){IZCameraPtr active;checked(cameras_->get_ActiveCamera(&active));out["camera"]=json::parse(jsonCameraState(ReadCamera(active)));
-        CRect rect=clientRect(GraphicsWindow());out["viewport"]={rect.Width(),rect.Height()};out["dpi"]=windowDpi(GraphicsWindow());}
+        CRect rect=clientRect(GraphicsWindow()),hostRect;::GetClientRect(GraphicsWindow(),&hostRect);
+        out["viewport"]={rect.Width(),rect.Height()};out["host_client_size"]={hostRect.Width(),hostRect.Height()};out["dpi"]=windowDpi(GraphicsWindow());}
     return out;
 }
 std::string HostSession::Request(const std::string& text) {

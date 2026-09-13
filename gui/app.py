@@ -4,12 +4,15 @@ import os
 from pathlib import Path
 import threading
 import traceback
+from preferences import Preferences, enable_per_monitor_dpi, initial_window_size, apply_titlebar_theme
 
 ROOT = Path(__file__).resolve().parent
 RUNTIME = ROOT / ".runtime"
 RUNTIME.mkdir(exist_ok=True)
 os.environ["TEMP"] = os.environ["TMP"] = str(RUNTIME)
 
+if __name__ == "__main__":
+    enable_per_monitor_dpi()
 import webview
 from bridge import Bridge, available_hosts
 from project import load_image, make_project, validate_pixel
@@ -25,6 +28,20 @@ class Api:
         self._image = None
         self._points = {}
         self._key = None
+        self._preferences = Preferences(RUNTIME)
+        self._native_theme = None
+
+    def preferences(self):
+        with self._lock:
+            value = self._preferences.snapshot()
+            if self._window and self._window.native is not None and self._native_theme != value["theme"]:
+                apply_titlebar_theme(self._window, value["theme"])
+                self._native_theme = value["theme"]
+            return value
+
+    def set_language(self, selection):
+        with self._lock:
+            return self._preferences.set_language(selection)
 
     def _accept(self, state):
         key = (state["session"], state["capture_id"])
@@ -43,14 +60,17 @@ class Api:
                     if not self._image:
                         raise ValueError("사진을 먼저 여세요.")
                     args = {**(args or {}), "path": self._image["overlay_path"]}
-                return self._accept(self._bridge.call(command, session, args))
+                result = self._accept(self._bridge.call(command, session, args))
+                if command == "restore" and not result["state"].get("restored"):
+                    raise ValueError("원래 보기 복원을 확인하지 못했습니다.")
+                return result
         except Exception as error:
             return {"ok": False, "error": str(error)}
 
     def open_image(self):
         try:
             paths = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False,
-                                                     file_types=("사진 (*.png;*.jpg;*.jpeg;*.bmp;*.avif)",))
+                                                     file_types=(("사진" if self._preferences.snapshot()["language"] == "ko" else "Photos") + " (*.png;*.jpg;*.jpeg;*.bmp;*.avif)",))
             if not paths:
                 return {"ok": True, "cancelled": True}
             image = load_image(paths[0])
@@ -116,7 +136,9 @@ class Api:
             if self._bridge.host in available_hosts():
                 previous = self._bridge.call("status")
                 if previous.get("captured"):
-                    self._bridge.call("restore", previous["session"])
+                    restored = self._bridge.call("restore", previous["session"])
+                    if not restored.get("restored"):
+                        raise ValueError("원래 보기 복원을 확인하지 못했습니다.")
             self._bridge = target
             return self._accept(state)
 
@@ -130,8 +152,10 @@ def main():
         return
     try:
         api = Api(args.host)
+        width, height = initial_window_size()
+        theme = api._preferences.snapshot()["theme"]
         window = webview.create_window("IronCAD PhotoMatch", str(ROOT / "web" / "index.html"), js_api=api,
-                                      width=1320, height=860, min_size=(1040, 680), background_color="#101416")
+                                      width=width, height=height, min_size=(600, 320), background_color="#101416" if theme == "dark" else "#f5f7f8")
         api._window = window
         window.events.closing += api._closing
         minimized = threading.Event()

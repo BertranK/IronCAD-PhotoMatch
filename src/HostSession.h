@@ -30,6 +30,7 @@ public: HostSession* owner=nullptr;
 class PhotoOverlay : public CWnd {
 public:
     CImage image;
+    photomatch::Rect imageRect{};
     void Open(const CString& path,HWND host);
     void Align(HWND host);
     void Clear();
@@ -108,7 +109,7 @@ private:
     CComPtr<IPersistStream> backgroundPersistence_;
     CComPtr<IStream> backgroundBackup_;
     bool backgroundChanged_=false;
-    double imageFocal_=0,recordedImageFocal_=0,lastW_=0,lastH_=0;
+    double imageFocal_=0,recordedImageFocal_=0,lastW_=0,lastH_=0,lastRenderW_=0,lastRenderH_=0;
     std::string savedCameraRecord_="null",restoredCameraRecord_="null";
     unsigned int dpi_=0;
     void CheckContext();

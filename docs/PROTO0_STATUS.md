@@ -7,18 +7,18 @@
 |---|---|
 | v143 / x64 / MFC·ATL 빌드 | 새 DLL 통과, 경고 0·오류 0 |
 | 독립 투영 수식 테스트 | 통과 |
-| Python / Named Pipe 테스트 | 16개 통과: 기존 10개 + 창 재사용·호스트 전환 6개 |
-| JavaScript 사진 좌표 테스트 | 2개 통과: 확대·이동·가로/세로 화면 변환과 영역 밖 입력 |
+| Python / Named Pipe 테스트 | 21개 통과: 연결·동시 접속·창 재사용·복원 판정·언어 설정·초기 창 크기 |
+| JavaScript / 브라우저 테스트 | 5개 통과: 사진 좌표·번역·DPI/테마/언어/리사이즈 행렬 |
 | Python + Tailwind 실제 창 표시 | 통과: evidence/gui-empty.png |
 | 사용자 AVIF 샘플 표시·확대 | 통과: 750×750 원본, evidence/gui-sample-avif.png |
-| DLL 배포·시스템 COM 등록 | 메뉴 활성화·정밀 투영 진단·복원 비교 수정본 배포 완료 |
+| DLL 배포·시스템 COM 등록 | 메뉴·복원 비교 버전 배포 완료. 이번 DPI/끝점 규약 수정 DLL은 빌드 완료, 교체·호스트 검증 대기 |
 | 기본 로드 / 추가 메뉴 | 통과: 수동 체크 없이 재시작, Add-Ins → IronCAD PhotoMatch → PhotoMatch 열기 |
 | 기존 GUI 재사용 | 통과: 반복 메뉴 클릭·최소화 복구·호스트 재시작 후 같은 창과 사진 유지 |
 | 새 연결 모듈의 IronCAD 내부 초기화 | 통과: 실제 호스트 InitSelf 및 Named Pipe 상태 응답 확인 |
 | 실제 LEGO 샘플 상태 보관·점 선택 | 통과: PID 44744, P1 / vertex 1194 좌표 취득, errors=[] |
 | 카메라 적용·복원 / GUI 저장 | 호스트 API 적용·복원 수행, GUI 결과 저장 확인. 아래 복원 비교 수정 참고 |
 | 꼭짓점 전역 좌표·FOV 규약·사진 정합 | 전체 기준 미검증 |
-| 가로/세로 및 Windows 배율 100%/150% 행렬 | 150%에서 가로/세로·3개 화각·2개 자세 측정. 100% 및 사진 정합 미검증 |
+| 가로/세로 및 Windows 배율 100%/150% 행렬 | 150%에서 가로/세로·3개 화각·2개 자세 측정. 100%에서 가로형 8점 추가 측정. 사진 정합 미검증 |
 
 Named Pipe 단독 시험은 실제 C++ 전송 코드와 Python 클라이언트를 사용한 echo 프로세스 시험이다.
 IronCAD API 성공을 의미하지 않는다. GUI 좌표 시험도 CAD 전역 좌표 규약을 증명하지 않는다.
@@ -61,7 +61,8 @@ GetViewExtents=(rw,rh)에 대해 종횡비 (rw-1)/(rh-1), 픽셀 범위 (rw-2,rh
 945×669 / 575×669, FOV 0.3711721031 / 0.7 / 1.1, 기존 자세와 축 정렬 자세를 사용했다.
 증거: `evidence/camera-double-matrix.json`, `evidence/projection-raster-hypothesis.json`.
 이는 **150%의 수치 가설**이며 실제 사진 정합이나 100% 배율 검증을 대신하지 않는다.
-호스트의 통과 판정과 사진 표시 수식에는 아직 적용하지 않았다.
+이번 소스에는 렌더 픽셀 끝점과 정수 버림 이후 물리 픽셀로 변환하는 규약을 적용했다.
+독립 회귀 시험과 v143 빌드가 통과했으나 실행 중 호스트의 DLL은 아직 이전 버전이다.
 
 복원 반복 중 SDK가 Up 벡터를 약 2.2e-16 정규화해 JSON 문자열의 완전 일치 검사가
 실패하는 것을 확인했다(`evidence/camera-restore-final.json`). 카메라 값 비교를
@@ -72,9 +73,45 @@ JSON에 비교 규약을 함께 저장한다. 모델 변환·바운딩 박스 �
 모두 restored=true, model_transforms_bounds_unchanged=true, errors=[]였다.
 실행 증거는 `evidence/camera-restore-verified.json`이다.
 
-다음 검증은 화면 끝점 규약을 실제 사진 모서리·내부 기준점과 대조하고 100%에서 재검사하는 것이다.
+다음 검증은 새 DLL을 배포하여 화면 끝점 규약을 실제 사진 모서리·내부 기준점과 대조하는 것이다.
 알려진 크기 및 중첩 어셈블리의 전역 좌표 검증도 남아 있다. GUI 상태 조회와 외부 진단
-클라이언트가 동시에 연결할 때 한 차례 파이프 연결 실패가 관찰되어 동시 연결 재현도 필요하다.
+클라이언트 동시 연결 실패는 8개 클라이언트/32개 요청 시험으로 재현했다.
+WaitNamedPipe 성공 이후 다른 클라이언트가 먼저 연결하면 CreateFile이 ERROR_PIPE_BUSY를
+반환했다. 요청 기한 내에서 연결 단계만 다시 시도하도록 수정했고 재현 시험이 통과했다.
+명령을 전송한 이후의 자동 재시도는 추가하지 않았다.
+
+## Windows 표시 및 언어 검증 (2026-09-14 야간)
+
+- 실제 Windows 설정에서 다크/라이트 전환과 GUI 제목 표시줄·화면 색 변경을 확인했다.
+  `evidence/ui-dark-english.jpg`, `evidence/ui-light-english.jpg`.
+- 언어 선택을 English로 변경해 실제 창의 버튼·설명·입력 레이블 변경을 확인했다.
+  시스템 기본값은 Windows ko-KR를 한국어로 해석하며, 수동 설정 저장/재읽기는 자동 시험했다.
+- 실제 Windows 배율을 150%에서 100%로 변경했다. 기존 IronCAD는 DPI 144를 유지하면서
+  SDK 렌더 크기 945×669를 물리 크기 630×446으로 표시했다. 이 상태의 8개 정수 투영도
+  끝점 규약과 일치했다(`evidence/dpi100-landscape.json`). 새 DLL의 호스트 통과 결과는 아니다.
+- 실행 중 PhotoMatch 창의 Per Monitor V2 인식과 DPI 96을 Win32 조회로 확인했다.
+  같은 시점 IronCAD 창은 Per Monitor V2가 아니며 DPI 144였다(`evidence/native-window-dpi.json`).
+- Edge 모의 시험: 5개 DPR × 4개 창 크기 × 2개 테마의 40개 조합, 실행 중 DPR 변경,
+  언어 전환, 원본 사진 좌표·사용자 이름 보존, 주요 버튼 경계와 캔버스 픽셀 크기가 통과했다.
+  창 크기는 1320×860, 960×640, 600×480, 600×320 CSS px다.
+  `evidence/browser-ui-*.png`는 이 모의 GUI의 합성 시험 사진이며 실제 IronCAD 화면이 아니다.
+
+화면 검증 도중 Computer Use가 `IGraphicsCaptureItemInterop.CreateForMonitor ... 0x80070057`로
+실패했고 재시도도 실패했다. 접근성 정보도 반환되지 않아 화면 입력을 중단했다.
+그 전에 시험 카메라 복원(restored=true, errors=[])과 시험 문서 저장을 완료했다.
+IronCAD PID 41228은 계속 응답하며 사용자 원본 모델은 수정하지 않았다.
+
+원래 Windows 다크 테마와 PhotoMatch 시스템 언어 기본값을 저장 설정으로 복구했다.
+시험 시 변경된 단일 모니터의 영구 배율 설정도 원래 150%로 복구했다.
+**현재 실행 화면은 마지막 Win32 조회에서 GUI DPI 96이었다. 배율의 실시간 150% 복원은 미확인이다.**
+정리 기록은 `evidence/display-settings-cleanup.json`이다. 기존 GUI에는 테스트 중 선택한
+영어가 남아 있을 수 있고 다음 GUI 실행부터 시스템 언어 기본값을 읽는다.
+
+남은 실행 순서: 화면 접근 복구 → 실제 배율 150% 확인 → 시험 문서 저장/호스트 정상 종료 →
+`scripts/configure-host.ps1`로 DLL 교체 → GUI 재시작 → IronCAD 재실행 후 100%/150%의
+가로/세로 투영 및 오버레이/배경 복원 시험. 현재 설치 DLL SHA-256은
+`99862EF116E9149F22FCE96162A2948D37D91AFE23B87FB30A84A664F6FBBF22`, 새 빌드는
+`38E0C378331176ECE19163F538F7C61299A7B522624E885C0C6BF333C2AA4E1A`다.
 
 사용자가 제공한 testsample에는 LEGO Brick v1.ics, LEGO Brick v1.step, 750×750 AVIF가 있다.
 AVIF는 여러 블록을 배열한 이미지이므로 이후 대응점 시험은 하나의 블록을 기준으로 해야 한다.

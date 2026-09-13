@@ -79,11 +79,18 @@ class Bridge:
             encoded = json.dumps(request, ensure_ascii=False, allow_nan=False).encode("utf-8")
             if len(encoded) > 65536:
                 raise BridgeError("명령 크기가 너무 큽니다.")
-            if not kernel.WaitNamedPipeW(name, self.timeout_ms):
-                raise BridgeError("IronCAD 연결을 확인하세요.")
-            handle = kernel.CreateFileW(name, 0xC0000000, 0, None, 3, 0x40000000, None)
-            if handle == ct.c_void_p(-1).value:
-                raise BridgeError("IronCAD에 연결할 수 없습니다.")
+            deadline = time.monotonic() + self.timeout_ms/1000
+            while True:
+                remaining = max(0, int((deadline-time.monotonic())*1000))
+                if not remaining or not kernel.WaitNamedPipeW(name, remaining):
+                    raise BridgeError("IronCAD 연결을 확인하세요.")
+                handle = kernel.CreateFileW(name, 0xC0000000, 0, None, 3, 0x40000000, None)
+                if handle != ct.c_void_p(-1).value:
+                    break
+                # Another client can take the available instance after WaitNamedPipe.
+                # No request has been sent yet; never retry a write or an uncertain result.
+                if ct.get_last_error() != 231:  # ERROR_PIPE_BUSY
+                    raise BridgeError("IronCAD에 연결할 수 없습니다.")
             try:
                 mode = wt.DWORD(2)
                 if not kernel.SetNamedPipeHandleState(handle, ct.byref(mode), None, None):
