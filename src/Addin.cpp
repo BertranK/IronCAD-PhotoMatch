@@ -1,4 +1,4 @@
-#include "ProtoDialog.h"
+#include "HostSession.h"
 
 extern const CLSID CLSID_PhotoMatchProto={0xa44d3379,0xfc03,0x4cbf,{0x9b,0x10,0xa8,0xcc,0x56,0xb3,0xa7,0xe1}};
 CComModule _Module;
@@ -14,17 +14,17 @@ static void loadLog(const CString& message) noexcept {
     }catch(CException* e){e->Delete();}catch(...){}
 }
 class ShowCommand : public CZCommandEventsSink {
-public: ProtoDialog* dialog=nullptr;
+public: HostSession* dialog=nullptr;
     HRESULT STDMETHODCALLTYPE OnClick() override {
         AFX_MANAGE_STATE(AfxGetStaticModuleState());
-        if(dialog){dialog->ShowWindow(SW_SHOW);dialog->SetForegroundWindow();}return S_OK;
+        if(dialog)dialog->Guard([&]{dialog->LaunchGui();});return S_OK;
     }
 };
 class ATL_NO_VTABLE PhotoMatchAddin : public CComObjectRootEx<CComSingleThreadModel>,
     public CComCoClass<PhotoMatchAddin,&CLSID_PhotoMatchProto>,public IZAddinServer {
     IZAddinSitePtr site_;
     IZCommandHandlerPtr command_;
-    std::unique_ptr<ProtoDialog> dialog_;
+    std::unique_ptr<HostSession> dialog_;
     CComObject<ShowCommand>* sink_=nullptr;
 public:
     DECLARE_REGISTRY_RESOURCEID(IDR_ADDIN)
@@ -37,15 +37,15 @@ public:
         try {
             if(site_||!site)return E_UNEXPECTED;site_=site;IZBaseAppPtr app;checked(site_->get_Application(&app));
             loadLog(L"Host application acquired");
-            dialog_.reset(new ProtoDialog(app));if(!dialog_->Create(IDD_PROTO))throw std::runtime_error("Cannot create Proto dialog");
-            loadLog(L"Modeless dialog created");
+            dialog_.reset(new HostSession(app));dialog_->Start();
+            loadLog(L"Hidden host dispatcher created");
             checked(site_->CreateCommandHandler(CComBSTR(L"PhotoMatchProto.Open"),CComBSTR(L"PhotoMatch Proto"),
                 CComBSTR(L"Open PhotoMatch connection diagnostics"),CComBSTR(L"PhotoMatch Proto 0"),nullptr,nullptr,&command_));
             checked(CComObject<ShowCommand>::CreateInstance(&sink_));sink_->AddRef();sink_->dialog=dialog_.get();checked(sink_->Advise(command_));
             IZEnvironmentMgrPtr environments;checked(app->get_EnvironmentMgr(&environments));IZEnvironmentPtr scene;
             checked(environments->get_Environment(Z_ENV_SCENE,&scene));IZControlBarPtr bar;checked(scene->AddControlBar(site_,CComBSTR(L"PhotoMatch Proto"),&bar));
             IZControlsPtr controls;checked(bar->get_Controls(&controls));IZControlDescriptorPtr descriptor;checked(command_->get_ControlDescriptor(&descriptor));
-            IZControlPtr button;checked(controls->Add(Z_CONTROL_BUTTON,descriptor,nullptr,&button));dialog_->ShowWindow(SW_SHOW);loadLog(L"InitSelf ready; window shown");return S_OK;
+            IZControlPtr button;checked(controls->Add(Z_CONTROL_BUTTON,descriptor,nullptr,&button));dialog_->Guard([&]{dialog_->LaunchGui();});loadLog(L"InitSelf ready; pipe bridge active");return S_OK;
         }catch(const _com_error& e){CString msg;msg.Format(L"InitSelf failed: HRESULT 0x%08X",unsigned(e.Error()));loadLog(msg);DeInitSelf();return e.Error();}
         catch(const std::exception& e){loadLog(CString(L"InitSelf failed: ")+CString(CA2W(e.what(),CP_UTF8)));DeInitSelf();return E_FAIL;}
         catch(CException* e){wchar_t msg[512]={};e->GetErrorMessage(msg,512);e->Delete();loadLog(msg);DeInitSelf();return E_FAIL;}

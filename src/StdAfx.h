@@ -22,7 +22,14 @@ namespace Gdiplus {using std::min;using std::max;}
 #pragma warning(pop)
 #include "../core/Projection.h"
 extern CComModule _Module;
-inline void checked(HRESULT hr) { if(FAILED(hr)) _com_issue_error(hr); }
+inline void checkedApi(HRESULT hr,const char* operation) {
+    if(FAILED(hr)) {
+        std::ostringstream message;
+        message<<operation<<" failed (COM 0x"<<std::hex<<std::uppercase<<std::setw(8)<<std::setfill('0')<<static_cast<unsigned long>(hr)<<')';
+        throw std::runtime_error(message.str());
+    }
+}
+#define checked(operation) checkedApi((operation),#operation)
 inline bool sameObject(IUnknown* a,IUnknown* b) {
     if(!a||!b) return a==b;
     CComPtr<IUnknown> x,y; checked(a->QueryInterface(IID_PPV_ARGS(&x))); checked(b->QueryInterface(IID_PPV_ARGS(&y)));
