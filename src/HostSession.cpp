@@ -117,8 +117,10 @@ CameraState HostSession::ReadCamera(IZCamera* camera) {
 }
 void HostSession::WriteCamera(IZCamera* camera,const CameraState& s) {
     checked(camera->put_Perspective(s.perspective));checked(camera->put_Position(s.position));
-    checked(camera->put_CenterOfInterest(s.interest));checked(camera->put_Direction(s.direction));checked(camera->put_Up(s.up));
+    checked(camera->put_Direction(s.direction));checked(camera->put_Up(s.up));
     checked(camera->put_Near(s.nearClip));checked(camera->put_Far(s.farClip));checked(camera->put_Scale(s.scale));checked(camera->put_FieldOfView(s.values.field));
+    // Earlier setters can replace the orbit center; restore it last.
+    checked(camera->put_CenterOfInterest(s.interest));
 }
 std::string HostSession::ModelFingerprint() {
     std::ostringstream out;out.imbue(std::locale::classic());out<<std::setprecision(17);
@@ -282,7 +284,8 @@ void HostSession::Restore() {
     try {
         StopPicking();measuring_=false;overlay_.Clear();imageFocal_=0;
         if(backgroundChanged_){LARGE_INTEGER zero{};checked(backgroundBackup_->Seek(zero,STREAM_SEEK_SET,nullptr));checked(backgroundPersistence_->Load(backgroundBackup_));backgroundChanged_=false;}
-        WriteCamera(original_,saved_);checked(cameras_->put_ActiveCamera(original_));
+        // Apply the complete saved state to the reactivated camera.
+        checked(cameras_->put_ActiveCamera(original_));WriteCamera(original_,saved_);
         if(test_){LONG count=0;checked(cameras_->get_Count(&count));
             // Find by COM identity; never remove an unrelated camera by an assumed index.
             for(LONG i=0;i<count;++i){IZCameraPtr camera;if(SUCCEEDED(cameras_->get_Camera(i,&camera))&&sameObject(camera,test_)){checked(cameras_->Remove(i));break;}}
@@ -419,8 +422,9 @@ std::string HostSession::Request(const std::string& text) {
         if(request.at("deadline_ms").get<unsigned long long>()<now)throw std::runtime_error("Request expired; no action performed");
         SyncDocument();auto command=request.at("command").get<std::string>();
         if(command!="status"&&request.at("session").get<std::string>()!=SessionId())throw std::runtime_error("Document changed; refresh and capture again");
-        auto args=request.value("args",json::object());
+        auto args=request.value("args",json::object());json fixture;
         if(command=="capture")Capture();
+        else if(command=="test_coordinate_fixture")fixture=CoordinateFixture();
         else if(command=="reconnect")Reconnect(args.at("host"));
         else if(command=="pick")Pick();
         else if(command=="stop_pick")StopPicking();
@@ -432,7 +436,7 @@ std::string HostSession::Request(const std::string& text) {
         else if(command=="photo"){auto path=args.at("path").get<std::string>();Photo(CString(CA2W(path.c_str(),CP_UTF8)),args.at("focal_px").get<double>());}
         else if(command=="background"){auto path=args.at("path").get<std::string>();Background(CString(CA2W(path.c_str(),CP_UTF8)));}
         else if(command!="status")throw std::runtime_error("Unknown command");
-        response["state"]=Snapshot();response["ok"]=true;
+        response["state"]=Snapshot();if(!fixture.is_null())response["state"]["coordinate_fixture"]=fixture;response["ok"]=true;
     }catch(const _com_error& e){CString msg;msg.Format(L"COM error 0x%08X",unsigned(e.Error()));response["error"]=utf8(msg);Log(msg);}
     catch(const std::exception& e){response["error"]=e.what();Log(CString(CA2W(e.what(),CP_UTF8)));}
     catch(CException* e){wchar_t msg[512]={};e->GetErrorMessage(msg,512);e->Delete();response["error"]=utf8(msg);Log(msg);}

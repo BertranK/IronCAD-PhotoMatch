@@ -85,6 +85,7 @@ private:
     std::string SessionId() const;
     std::string Request(const std::string& request);
     nlohmann::json Snapshot();
+    nlohmann::json CoordinateFixture();
     std::string Report();
     IZBaseAppPtr app_;
     IZDocPtr doc_;
