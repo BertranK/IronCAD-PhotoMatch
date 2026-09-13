@@ -1,5 +1,45 @@
 # Proto 0 검증 현황
 
+## 최신 실행 검증 — Windows 150% (2026-09-14)
+
+**전체 Proto 0는 미완료다.** 아래는 PID 42232에서 실제 확인한 결과다.
+설치 DLL은 `38E0C378331176ECE19163F538F7C61299A7B522624E885C0C6BF333C2AA4E1A`이며
+화면 끝점/물리 픽셀 변환 수정이 포함된다. 이후 오버레이 수정 빌드는 아직 설치하지 않았다.
+
+| 검사 | 실제 결과 및 로컬 증거 |
+|---|---|
+| 실제 150% / GUI DPI 인식 | GUI와 IronCAD 모두 DPI 144. GUI는 Per Monitor V2, IronCAD는 아님. `evidence/final-native-window-dpi.json` |
+| 가로/세로 SDK 투영 | 3180×1844, 1379×1035, 425×1035, 3341×1844 물리 화면에서 시험. FOV 0.7/1.1, 두 자세 포함. 합성 기준점의 최대 오차 0 물리 px. `final-dpi150-*.json`, `final-photo-landscape.json` |
+| FOV 규약 | 가로·세로 결과를 합쳐 `minimum_radians_full`이 유일하게 통과. 다음 후보 최대 오차 159.201 px. `final-dpi150-portrait.json` |
+| 실제 모델 점 선택 | LEGO 꼭짓점 1186과 1140 취득, COM 오류 없음. 이동 변환을 포함한 좌표 기록. 알려진 중첩 회전 모델과의 대조는 미검증. `final-point-selection.json`, `final-overlay-click-through.json` |
+| GUI | AVIF 표시, System/English 전환, 기존 창 재사용 확인. `final-gui-english-dpi150.jpg` |
+| 배경 경로 | 독립 복원 스냅샷 미지원으로 변경하지 않음. `final-background-probe.json` |
+| 사진 오버레이 | 세로 창 표시·이동 추적·클릭 통과 확인. **최대화하면 사진이 사라짐을 재현.** 좌표 JSON만으로 화면 통과 판정하지 않음. `final-photo-portrait.jpg`, `final-photo-moved.jpg` |
+| 복원 | restored=true, model_transforms_bounds_unchanged=true, errors=[]. 시험 문서 저장 확인. `final-before-overlay-update-restore.json`, `final-dpi150-stopped-state.json` |
+
+사진 최대화 문제에 대해 캐시한 32비트 이미지를 창 위치·크기와 함께
+[`UpdateLayeredWindow`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-updatelayeredwindow)로
+갱신하도록 수정했다. 크기가 그대로이면 이미지를 다시 그리지 않는다.
+v143 빌드(경고 0, 오류 0)와 투영 회귀 시험은 통과했다.
+새 DLL SHA-256은 `56E49BE5F79950579DCE92C571C7B1024300FEFD6931F4549A125B8CB18CCEC8`다.
+**수정 효과는 실제 IronCAD에서 아직 미검증이다.**
+
+교체를 위한 정상 종료 과정에서 화면 도구가
+`IGraphicsCaptureItemInterop.CreateForMonitor ... 0x80070057`과
+`wait for accessibility element target: timed out waiting on channel`을 반환했다.
+IronCAD와 GUI 모두 캡처가 실패해 화면 입력을 중단했다. PID 42232는 여전히 응답하며
+실행 중 DLL을 교체하거나 호스트를 강제 종료하지 않았다. 카메라는 이미 복원되었고
+사용자 원본 대신 `evidence/LEGO-before-menu-update.ics` 시험 복사본만 저장했다.
+Windows 다크 테마와 150%는 유지했다. 언어 저장값은 System으로 복구했지만
+열려 있는 GUI의 English 표시가 즉시 바뀌었는지는 미확인이다.
+
+남은 순서: 화면 접근 복구 → IronCAD 정상 종료 → `scripts/configure-host.ps1` →
+재실행 → 오버레이의 세로/최대화/복원 반복 → 새 DLL의 실제 100%/150% 행렬 →
+알려진 중첩 모델 좌표 및 사진 모서리·내부 기준점 정합 → 문서 전환·종료·오류 입력 검증.
+아래 기록은 이 검증 이전의 이력이며, 이전의 배포 대기/배율 미확인 상태는 위 결과로 갱신한다.
+
+## 이전 구현·검증 이력
+
 2026-09-14. **전체 Proto 0는 미완료**다. 기존 MFC 창을 독립 Python GUI로 전환했다.
 이전 버전의 호스트 성공과 새 연결 모듈의 시험 결과를 구분한다.
 

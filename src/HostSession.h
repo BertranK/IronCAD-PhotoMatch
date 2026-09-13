@@ -34,10 +34,12 @@ public:
     void Open(const CString& path,HWND host);
     void Align(HWND host);
     void Clear();
-    afx_msg void OnPaint();
     afx_msg LRESULT OnHitTest(CPoint) { return HTTRANSPARENT; }
     afx_msg int OnMouseActivate(CWnd*,UINT,UINT) {return MA_NOACTIVATE;}
     DECLARE_MESSAGE_MAP()
+private:
+    CImage frame_;
+    CPoint position_{};
 };
 struct CameraState {
     photomatch::Camera values;

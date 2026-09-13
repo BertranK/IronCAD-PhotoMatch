@@ -34,7 +34,6 @@ template<class T> static void freeSink(CComObject<T>*& sink) {
 }
 
 BEGIN_MESSAGE_MAP(PhotoOverlay,CWnd)
- ON_WM_PAINT()
  ON_WM_NCHITTEST()
  ON_WM_MOUSEACTIVATE()
 END_MESSAGE_MAP()
@@ -45,22 +44,36 @@ void PhotoOverlay::Open(const CString& path,HWND host) {
     CString cls=AfxRegisterWndClass(0,LoadCursor(nullptr,IDC_ARROW));
     if(!CreateEx(WS_EX_LAYERED|WS_EX_TRANSPARENT|WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW,cls,L"PhotoMatch reference image",
         WS_POPUP,CRect(0,0,10,10),CWnd::FromHandle(host),0))throw std::runtime_error("Cannot create overlay");
-    SetLayeredWindowAttributes(RGB(1,2,3),150,LWA_COLORKEY|LWA_ALPHA);Align(host);
+    // The first Align follows calculation of the image rectangle in UpdateOverlay.
 }
-void PhotoOverlay::Clear(){if(GetSafeHwnd())DestroyWindow();if(!image.IsNull())image.Destroy();}
+void PhotoOverlay::Clear(){if(GetSafeHwnd())DestroyWindow();if(!image.IsNull())image.Destroy();if(!frame_.IsNull())frame_.Destroy();}
 void PhotoOverlay::Align(HWND host) {
     if(!GetSafeHwnd())return;PhysicalPixels scope;
     if(!::IsWindowVisible(host)||::IsIconic(::GetAncestor(host,GA_ROOT))){ShowWindow(SW_HIDE);return;}
     RECT r;::GetClientRect(host,&r);POINT p{0,0};::ClientToScreen(host,&p);
-    SetWindowPos(&wndTop,p.x,p.y,r.right,r.bottom,SWP_NOACTIVATE|SWP_SHOWWINDOW);Invalidate(FALSE);
-}
-void PhotoOverlay::OnPaint() {
-    PhysicalPixels scope;CPaintDC dc(this);CRect r;GetClientRect(&r);dc.FillSolidRect(r,RGB(1,2,3));if(image.IsNull()||r.IsRectEmpty())return;
-    Rect b=imageRect;if(b.w<=0||b.h<=0)return;
-    dc.SetStretchBltMode(HALFTONE);SetBrushOrgEx(dc.GetSafeHdc(),0,0,nullptr);
-    image.Draw(dc.GetSafeHdc(),int(std::round(b.x)),int(std::round(b.y)),int(std::round(b.w)),int(std::round(b.h)));
-    // The frame identifies the effective image region, including letterboxing.
-    dc.Draw3dRect(int(std::round(b.x)),int(std::round(b.y)),int(std::round(b.w)),int(std::round(b.h)),RGB(0,255,255),RGB(0,255,255));
+    if(image.IsNull()||r.right<=0||r.bottom<=0||imageRect.w<=0||imageRect.h<=0)return;
+    bool repaint=frame_.IsNull()||frame_.GetWidth()!=r.right||frame_.GetHeight()!=r.bottom;
+    if(!repaint&&position_==CPoint(p)&&IsWindowVisible())return;
+    if(repaint){
+        if(!frame_.IsNull())frame_.Destroy();
+        if(!frame_.Create(r.right,r.bottom,32))throw std::runtime_error("Cannot allocate photo overlay");
+        HDC memory=frame_.GetDC();CDC* dc=CDC::FromHandle(memory);
+        dc->FillSolidRect(&r,RGB(1,2,3));dc->SetStretchBltMode(HALFTONE);SetBrushOrgEx(memory,0,0,nullptr);
+        int x=int(std::round(imageRect.x)),y=int(std::round(imageRect.y)),w=int(std::round(imageRect.w)),h=int(std::round(imageRect.h));
+        BOOL drawn=image.Draw(memory,x,y,w,h);dc->Draw3dRect(x,y,w,h,RGB(0,255,255),RGB(0,255,255));
+        GdiFlush();frame_.ReleaseDC();if(!drawn)throw std::runtime_error("Cannot draw photo overlay");
+        // Make the letterbox transparent; all visible pixels have straight alpha 255.
+        for(int row=0;row<r.bottom;++row){auto pixels=static_cast<BYTE*>(frame_.GetBits())+row*frame_.GetPitch();
+            for(int col=0;col<r.right;++col){BYTE* pixel=pixels+col*4;
+                if(pixel[0]==3&&pixel[1]==2&&pixel[2]==1)memset(pixel,0,4);else pixel[3]=255;
+            }
+        }
+    }
+    // Commit the entire backing image with its new bounds, including maximize/DPI changes.
+    HDC memory=frame_.GetDC();POINT source{0,0};SIZE size{r.right,r.bottom};BLENDFUNCTION blend{AC_SRC_OVER,0,150,AC_SRC_ALPHA};
+    BOOL updated=::UpdateLayeredWindow(GetSafeHwnd(),nullptr,&p,&size,memory,&source,0,&blend,ULW_ALPHA);
+    frame_.ReleaseDC();if(!updated)throw std::runtime_error("Cannot update photo overlay");
+    position_=CPoint(p);ShowWindow(SW_SHOWNOACTIVATE);
 }
 
 BEGIN_MESSAGE_MAP(HostSession,CWnd)
