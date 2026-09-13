@@ -1,5 +1,29 @@
 # Proto 0 검증 현황
 
+## 화면 접근 복구 후 추가 검증 (2026-09-14)
+
+사용자가 모니터를 켠 뒤 화면 캡처와 입력이 다시 작동했다. IronCAD를 정상 종료하고
+오버레이 수정 DLL `56E49BE5F79950579DCE92C571C7B1024300FEFD6931F4549A125B8CB18CCEC8`을
+배포·등록한 다음 재시작했다. PID 36440에서 자동 로드와 시험 문서 연결을 확인했다.
+GUI와 IronCAD 모두 DPI 144였다(`evidence/overlay-fix-native-dpi.json`).
+
+세로 창 → 최대화 → 원래 창 크기 복원에서 사진이 재선택 없이 계속 표시되었다.
+이전의 최대화 시 사진 소실 문제가 이 실행에서는 재현되지 않았다.
+화면 증거는 `overlay-fix-portrait.jpg`, `overlay-fix-maximized.jpg`,
+`overlay-fix-restored-window.jpg`다. 가로·세로 측정과 최대화 후 측정에서
+`minimum_radians_full` 최대 오차 0 물리 px, errors=[]를 확인했다.
+수치 기록은 `overlay-fix-landscape.json`, `overlay-fix-portrait.json`,
+`overlay-fix-restored-window.json`이다. 사진의 실제 모델 대응점 정합을 뜻하지는 않는다.
+
+마지막 카메라 복원은 restored=true, model_transforms_bounds_unchanged=true,
+errors=[]였다(`overlay-fix-camera-restored.json`). 기존 GUI 창과 사진을 유지한 채
+새 호스트에 연결됐고, 언어를 System으로 선택해 실제 한국어 화면을 확인했다
+(`overlay-fix-gui-system.jpg`). Windows 다크 테마와 150%는 유지했다.
+
+**전체 Proto 0는 여전히 미완료다.** 새 DLL의 100% 실행 행렬, 알려진 중첩 어셈블리
+전역 좌표, 사진 모서리·내부 기준점 정합, 문서 수명/오류 입력의 최종 실행 검증이 남았다.
+아래의 교체·재실행 대기 기록은 위 추가 검증으로 갱신한다.
+
 ## 최신 실행 검증 — Windows 150% (2026-09-14)
 
 **전체 Proto 0는 미완료다.** 아래는 PID 42232에서 실제 확인한 결과다.
