@@ -1,5 +1,34 @@
 # Proto 0 검증 현황
 
+## 사용자 지정 샘플 — 오른쪽 위 연한 하늘색 블록 (2026-09-14)
+
+사용자가 지정한 오른쪽 위 연한 하늘색 블록 하나로 시험했다. Windows 배율은 150%를
+유지했다. 실제 LEGO 모델의 위·아래 모서리 6개를 선택하고 GUI에서 사진의 대응점을
+지정했다. vertex ID는 1189, 1191, 1199, 1185, 1186, 1181이며 COM 오류는 없었다.
+`evidence/sky-blue-six-pairs.json`은 실제 GUI의 결과 저장으로 생성했다.
+
+원본 750×750 사진에서 초점거리 1000 px, 주점 (375,375)를 가정한 별도 수치 시험으로
+카메라 자세를 근사했다. 제품에 PnP/렌즈 보정 기능을 추가한 것은 아니다.
+수동 사진 점의 불확실성과 사진/CAD의 형상 동일성은 검증되지 않았다.
+해당 자세를 실제 IronCAD 테스트 카메라에 적용하자 모델이 지정 블록 위에 겹쳐 표시됐다.
+아래쪽 가장자리의 홈 등 상세 형상은 사진과 모델에서 다르게 보였다.
+
+| 결과 | 측정값 |
+|---|---|
+| 별도 수치 근사에서 최대 사진 점 오차 | 4.3046 원본 이미지 px |
+| 실제 SDK 꼭짓점 투영과 사진 표식의 최대 거리 | 10.8524 물리 화면 px (원본 환산 4.4187 px) |
+| 실제 화면 크기 / 배율 | 3341×1844 물리 px / DPI 144 |
+| SDK 연결용 합성 기준점 투영 | 최대 0 물리 px |
+| 사용자 사진의 1 물리 px 정합 기준 | **미통과** |
+| 시험 후 복원 | restored=true, model_transforms_bounds_unchanged=true, errors=[] |
+
+0 px인 SDK 연결 검사와 사용자 사진의 정합 오차를 혼동하지 않는다. 이 결과만으로
+남은 오차를 렌즈, 클릭 오차, 형상 차이 중 어느 하나의 원인으로 단정하지 않는다.
+증거: `sky-blue-six-pairs.jpg`, `sky-blue-camera-fit.json`, `sky-blue-overlay.json`,
+`sky-blue-overlay-maximized.jpg`, `sky-blue-alignment-result.json`,
+`sky-blue-tested-project.json`, `sky-blue-restored.json` (모두 로컬 evidence 폴더).
+카메라 근사 재현용 일회성 분석은 `evidence/fit-sky-blue.py`에 보관했다.
+
 ## 화면 접근 복구 후 추가 검증 (2026-09-14)
 
 사용자가 모니터를 켠 뒤 화면 캡처와 입력이 다시 작동했다. IronCAD를 정상 종료하고
