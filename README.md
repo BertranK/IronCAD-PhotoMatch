@@ -24,10 +24,12 @@ Python/Node 실행 파일은 기존 PC 설치를 사용한다. SDK·MSVC·Python
 `register.ps1`은 관리자 권한으로 64비트 regsvr32를 실행하고 시스템 COM 경로를 검증한다.
 배포 DLL은 `../../bin/PhotoMatchProto.dll`이며, 호스트 목록 설정과 Add-in manifest는 원본을
 `evidence/`에 백업하고 PhotoMatch 항목만 추가한다. manifest의 필수 여부는 분리 시험하지 않았다.
-IronCAD의 Add-Ins → Add-in Applications에서 PhotoMatchProto를 켜면 독립 GUI를 실행한다.
-IronCAD 내부에 검증용 MFC 대화상자를 띄우지 않는다.
+설치 스크립트는 PhotoMatch의 자동 로드를 기본값으로 등록한다. Add-in Applications에서 직접 체크할 필요가 없다.
+IronCAD 시작 시 연결 모듈과 메뉴를 등록하며 GUI는 자동으로 띄우지 않는다.
+3D 장면의 Add-Ins → IronCAD PhotoMatch → PhotoMatch 열기로 독립 GUI를 열거나 기존 창을 다시 표시한다.
+클래식 메뉴 환경에도 IronCAD PhotoMatch 메뉴를 등록한다. 실제 메뉴 표시·자동 로드는 배포 후 화면 검증 대상이다.
 
-현재는 개발용 설치이며, 일반 PC에서 Add-in 체크만으로 설치까지 완료되지는 않는다.
+현재는 개발용 설치이며, 일반 PC에서는 최초 설치 준비가 필요하다.
 배포용 설치 프로그램은 아직 없다. 일반 배포 시 Python 런타임·패키지·GUI 자산과 C++ Add-in을
 함께 설치하고 WebView2/VC++ 런타임 및 COM 등록을 처리해야 한다. Node/MSVC는 사용자 실행 환경에 필요하지 않다.
 

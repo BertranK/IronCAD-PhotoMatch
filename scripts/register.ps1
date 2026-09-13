@@ -44,5 +44,5 @@ if ($Unregister) {
         throw 'Machine COM registration verification failed.'
     }
     Write-Output "Registered x64 PhotoMatch DLL: $dll"
-    Write-Output 'Enable PhotoMatchProto in Add-in Applications. COM registration alone needs no host restart.'
+    Write-Output 'PhotoMatch is configured to load by default. After restarting IronCAD, use Add-Ins > IronCAD PhotoMatch.'
 }

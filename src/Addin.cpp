@@ -39,13 +39,16 @@ public:
             loadLog(L"Host application acquired");
             dialog_.reset(new HostSession(app));dialog_->Start();
             loadLog(L"Hidden host dispatcher created");
-            checked(site_->CreateCommandHandler(CComBSTR(L"PhotoMatchProto.Open"),CComBSTR(L"PhotoMatch Proto"),
-                CComBSTR(L"Open PhotoMatch connection diagnostics"),CComBSTR(L"PhotoMatch Proto 0"),nullptr,nullptr,&command_));
+            checked(site_->CreateCommandHandler(CComBSTR(L"PhotoMatchProto.Open"),CComBSTR(L"PhotoMatch \uC5F4\uAE30"),
+                CComBSTR(L"IronCAD PhotoMatch \uC5F4\uAE30"),CComBSTR(L"IronCAD PhotoMatch"),nullptr,nullptr,&command_));
             checked(CComObject<ShowCommand>::CreateInstance(&sink_));sink_->AddRef();sink_->dialog=dialog_.get();checked(sink_->Advise(command_));
             IZEnvironmentMgrPtr environments;checked(app->get_EnvironmentMgr(&environments));IZEnvironmentPtr scene;
-            checked(environments->get_Environment(Z_ENV_SCENE,&scene));IZControlBarPtr bar;checked(scene->AddControlBar(site_,CComBSTR(L"PhotoMatch Proto"),&bar));
+            checked(environments->get_Environment(Z_ENV_SCENE,&scene));IZControlBarPtr bar;checked(scene->AddControlBar(site_,CComBSTR(L"IronCAD PhotoMatch"),&bar));
             IZControlsPtr controls;checked(bar->get_Controls(&controls));IZControlDescriptorPtr descriptor;checked(command_->get_ControlDescriptor(&descriptor));
-            IZControlPtr button;checked(controls->Add(Z_CONTROL_BUTTON,descriptor,nullptr,&button));dialog_->Guard([&]{dialog_->LaunchGui();});loadLog(L"InitSelf ready; pipe bridge active");return S_OK;
+            IZControlPtr button;checked(controls->Add(Z_CONTROL_BUTTON,descriptor,nullptr,&button));
+            IZRibbonBarPtr ribbon;checked(scene->GetRibbonBar(Z_RIBBONBAR,&ribbon));checked(ribbon->AddButton(descriptor));
+            checked(scene->AddAsMenu(site_,bar));
+            loadLog(L"InitSelf ready; pipe bridge active; PhotoMatch menu registered");return S_OK;
         }catch(const _com_error& e){CString msg;msg.Format(L"InitSelf failed: HRESULT 0x%08X",unsigned(e.Error()));loadLog(msg);DeInitSelf();return e.Error();}
         catch(const std::exception& e){loadLog(CString(L"InitSelf failed: ")+CString(CA2W(e.what(),CP_UTF8)));DeInitSelf();return E_FAIL;}
         catch(CException* e){wchar_t msg[512]={};e->GetErrorMessage(msg,512);e->Delete();loadLog(msg);DeInitSelf();return E_FAIL;}
