@@ -39,19 +39,25 @@ public static class PhotoMatchRegistrationProbe {
 }
 "@
 $found=[PhotoMatchRegistrationProbe]::Find()
-$appKey='Registry::HKEY_CURRENT_USER\Software\IronCAD\IRONCAD 29.0\Applications\PhotoMatchProto'
-$appRegistered=Get-Item -LiteralPath $appKey -ErrorAction SilentlyContinue
-$appListed=$null -ne $appRegistered -and $appRegistered.GetValue('') -eq '{A44D3379-FC03-4CBF-9B10-A8CC56B3A7E1}' -and $appRegistered.GetValue('ShowInList') -eq 1
 $protoRoot=Split-Path -Parent $PSScriptRoot
 $ironRoot=Split-Path -Parent (Split-Path -Parent $protoRoot)
 [xml]$hostXml=Get-Content -LiteralPath (Join-Path $ironRoot 'Config\Ironcad.Addin.config') -Raw
 $hostEntries=@($hostXml.IronCAD.AddIns.AddIn | Where-Object {$_.siteclsid -eq '{A44D3379-FC03-4CBF-9B10-A8CC56B3A7E1}'})
 $hostConfigured=$hostEntries.Count -eq 1 -and $hostEntries[0].inprocserver -eq 'PhotoMatchProto.dll' -and (Test-Path -LiteralPath (Join-Path $ironRoot 'bin\PhotoMatchProto.dll'))
-$report=[ordered]@{host_config_and_deployed_dll=$hostConfigured;ironcad_applications_registration=$appListed;timestamp_utc=[DateTime]::UtcNow.ToString('o');com_category_enumeration=$found;host_ui_visibility='pending';clsid='{A44D3379-FC03-4CBF-9B10-A8CC56B3A7E1}'}
+$machineKey='Registry::HKEY_LOCAL_MACHINE\Software\Classes\CLSID\{A44D3379-FC03-4CBF-9B10-A8CC56B3A7E1}\InprocServer32'
+$registered=Get-Item -LiteralPath $machineKey -ErrorAction SilentlyContinue
+$machineRegistered=$null -ne $registered -and $registered.GetValue('') -eq (Join-Path $ironRoot 'bin\PhotoMatchProto.dll') -and $registered.GetValue('ThreadingModel') -eq 'Apartment'
+$hostModules=@(Get-Process -Name IronCAD -ErrorAction SilentlyContinue | ForEach-Object {
+    $hostProcess=$_
+    $hostProcess.Modules | Where-Object ModuleName -eq 'PhotoMatchProto.dll' | ForEach-Object {
+        [ordered]@{pid=$hostProcess.Id;path=$_.FileName}
+    }
+})
+$report=[ordered]@{host_config_and_deployed_dll=$hostConfigured;machine_com_registration=$machineRegistered;timestamp_utc=[DateTime]::UtcNow.ToString('o');com_category_enumeration=$found;host_modules=$hostModules;host_ui_visibility='requires_screen_verification';clsid='{A44D3379-FC03-4CBF-9B10-A8CC56B3A7E1}'}
 $report | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $PSScriptRoot '..\evidence\registration.json') -Encoding utf8
 $report | ConvertTo-Json
 if (!$found) { throw 'PhotoMatchProto was not discoverable through COM category enumeration.' }
 
-if (!$appListed) { throw 'IronCAD 29.0 Applications entry is missing or hidden.' }
+if (!$machineRegistered) { throw 'Machine x64 COM registration is missing or points to the wrong DLL.' }
 
 if (!$hostConfigured) { throw 'Host config or deployed DLL missing.' }

@@ -1,6 +1,6 @@
 # IronCAD PhotoMatch Proto 0
 
-현재 상태: **구현·x64 빌드·독립 수식 테스트·Add-in 목록 표시 확인, IronCAD 내부 초기화 및 화면 정합 검증 미완료**. 최신 확인 범위는 `docs/PROTO0_STATUS.md`에 기록한다.
+현재 상태: **구현·x64 빌드·독립 수식 테스트·IronCAD 내부 초기화·검증 창·카메라 상태 읽기 확인, 수치·화면 정합 검증 미완료**. 최신 확인 범위는 `docs/PROTO0_STATUS.md`에 기록한다.
 SDK 원본 샘플은 수정하지 않는다. Python 사진 편집 UI, PnP, 렌즈 보정은 포함하지 않는다.
 
 ## 빌드와 등록
@@ -18,7 +18,7 @@ SDK 샘플의 v140 구성을 출발점으로 사용했다. D 드라이브 설치
 v140이 별도로 준비된 경우 `build.ps1 -Toolset v140`을 사용할 수 있다. 현재 환경에는 v140을 다시 설치하지 않았다.
 새 도구 설치 스크립트는 `scripts/setup-buildtools.ps1`이며 D 드라이브 경로와 다운로드 임시 경로를 사용한다. 기존 Windows SDK와 공용 Windows/VC 구성요소를 임의로 삭제하지 않는다.
 
-등록 스크립트는 현재 사용자 레지스트리에 이 Add-in의 고유 CLSID와 `Software/IronCAD/IRONCAD 29.0/Applications/PhotoMatchProto`를 등록한다. 두 번째 항목의 ShowInList=1이 IronCAD 목록 표시 설정이며, 신규 등록의 LoadOnStartup=0은 사용자가 체크해 활성화할 수 있도록 한다. 기존 활성화 설정은 재등록 때 유지한다. 관리자 권한이 필요하지 않다. IronCAD의 **Tools > Add-in Applications**에서 **PhotoMatchProto**를 체크하고 OK로 활성화한다. 이 관리 창을 Add-in Manager라고 부른다. 목록이 갱신되지 않을 때만 작업을 저장하고 IronCAD를 다시 시작한다.
+등록 스크립트는 관리자 권한의 64비트 PowerShell에서 배포 DLL을 System32/regsvr32.exe로 등록하고 HKLM의 InprocServer32 경로와 Apartment 설정을 확인한다. 일반 PowerShell에서 실행하면 관리자 권한으로 다시 실행한다. 이전 HKCU 수동 등록은 도구 검사에서는 통과했지만 실제 IronCAD는 CLSID를 찾지 못했다. 시스템 등록 후 같은 IronCAD 프로세스에서 재시작 없이 검증 창이 열렸다. **Add-Ins > Add-in Applications**에서 **PhotoMatchProto**를 체크하고 OK로 활성화한다. 최초 목록 설정 변경에는 재시작이 필요할 수 있다.
 등록은 호스트 로드 성공을 의미하지 않는다. DLL의 `LoadLibrary` 성공도 `InitSelf` 실행을 증명하지 않는다.
 
 해제하려면 작업을 저장하고 IronCAD를 종료한 뒤 실행한다.
@@ -27,7 +27,7 @@ v140이 별도로 준비된 경우 `build.ps1 -Toolset v140`을 사용할 수 �
 & .\scripts\register.ps1 -Unregister
 ```
 
-DLL을 교체하거나 재빌드하기 전에는 호스트에서 Add-in을 내리거나 IronCAD를 종료한다. 직접 `regsvr32`를 사용하면 시스템 범위 등록과 섞일 수 있으므로 제공 스크립트만 사용한다.
+DLL을 교체하거나 재빌드하기 전에는 호스트에서 Add-in을 내리거나 IronCAD를 종료한다. 제공 스크립트가 64비트 regsvr32 등록·해제를 함께 처리한다. 해제는 IronCAD 종료가 필요하며, 현재 실행 중인 호스트에서 해제 시험은 수행하지 않았다.
 
 ## 빈 장면에서 첫 연결 확인
 
@@ -60,13 +60,13 @@ python .\scripts\make-fixture.py
 `evidence/runtime-smoke.json`: 실행 중인 호스트에 읽기 전용으로 접속한 결과. 이 외부 COM 경로는 Add-in 내부 호출과 별개다.
 
 현재 외부 COM 연결은 `0x80029C4A TYPE_E_CANTLOADLIBRARY`로 실패한다. IIronCADApp 등록이 존재하지 않는 `C:\Program Files\IronCAD\2025\bin\IRONCAD.tlb`를 참조한다. 이 프로젝트는 기존 IronCAD COM 등록을 덮어쓰지 않았다.
-화면 제어 도구는 권한 변경 후 연결되었고, Add-in 목록에 PhotoMatchProto가 나타나는 것을 실제 화면으로 확인했다. 검증 창 표시와 사진 정합의 화면 증거는 아직 없다. 합성 기준 이미지는 화면 증거가 아니다.
+화면 제어 도구는 권한 변경 후 연결되었고, Add-in 목록에 PhotoMatchProto가 나타나는 것을 실제 화면으로 확인했다. 검증 창 표시와 Capture state 성공 화면을 evidence/addin-window-loaded.png 및 evidence/addin-state-captured.png에 저장했다. 사진 정합은 아직 미검증이다. 합성 기준 이미지는 화면 증거가 아니다.
 
 Add-in JSON의 `overall_status`는 시험 행렬을 외부에서 확인하기 전까지 `runtime_matrix_not_completed`로 유지한다. FOV 수식 테스트나 DLL 로드 성공만으로 Proto 0 완료로 바꾸지 않는다.
 
 초기화 진단: 호스트가 InitSelf를 호출하면 DLL 옆 `PhotoMatchProto-load.log`에 단계와 오류 HRESULT가 기록된다. 파일이 없는 경우 파일 쓰기 권한 또는 호스트 미호출을 구분해야 한다.
 
-등록 검증: `tests/RegistrationProbe.ps1`은 COM 분류 열거와 IronCAD 자체 Applications 매핑을 모두 검사한다. COM 분류 열거만 통과한 이전 결과는 목록 표시의 충분한 증거가 아니었다.
+등록 검증: `tests/RegistrationProbe.ps1`은 시스템 COM 등록, COM 분류 열거, 호스트 설정 및 실제 IronCAD의 DLL 모듈 경로를 검사한다. COM 분류 열거만 통과한 이전 결과는 목록 표시의 충분한 증거가 아니었다.
 
 ## IronCAD 2027 목록 표시 설정
 
@@ -78,6 +78,6 @@ Add-in JSON의 `overall_status`는 시험 행렬을 외부에서 확인하기 �
 
 ## 추가 확인: Side-by-side COM manifest
 
-IronCAD.exe.manifest → IronCAD.External.manifest → IronCAD.AddIn.manifest 의 연결 구조에서 PhotoMatch COM 클래스 등록이 누락되어 있었다. `configure-host.ps1`은 이제 `configure-manifest.ps1`을 통해 `bin/IronCAD.AddIn.manifest`에 PhotoMatch DLL의 COM 클래스 항목도 추가한다. 원본 백업은 `evidence/IronCAD.AddIn.manifest.before-photomatch`이다. 해제 시 이 클래스에 해당하는 file 항목만 제거한다. 실행 권한·보안 설정이나 기존 클래스는 바꾸지 않는다.
+진단 과정에서 IronCAD.exe.manifest → IronCAD.External.manifest → IronCAD.AddIn.manifest 연결에 PhotoMatch COM 클래스를 추가했다. 이 변경만으로는 호스트가 로드되지 않았고, 실제 해결은 시스템 COM 등록 후 확인했다. manifest 항목이 필수인지는 분리 시험하지 않았다. `configure-host.ps1`은 이제 `configure-manifest.ps1`을 통해 `bin/IronCAD.AddIn.manifest`에 PhotoMatch DLL의 COM 클래스 항목도 추가한다. 원본 백업은 `evidence/IronCAD.AddIn.manifest.before-photomatch`이다. 해제 시 이 클래스에 해당하는 file 항목만 제거한다. 실행 권한·보안 설정이나 기존 클래스는 바꾸지 않는다.
 
 `tests/ActivationContextProbe.ps1`은 실제 IronCad.exe.manifest로 Windows 활성화 컨텍스트를 생성하여 COM 클래스 조회와 IZAddinServer 생성을 검사한다. 추가 전에는 오류 14007, 추가 후에는 조회 성공 및 생성 HRESULT 0x00000000을 확인했다(`evidence/activation-before.json`, `evidence/activation-after.json`). 이것은 별도 진단 프로세스의 결과이며 호스트 InitSelf 성공을 대신하지 않는다. manifest 변경 뒤 IronCAD 재시작이 필요하다.
