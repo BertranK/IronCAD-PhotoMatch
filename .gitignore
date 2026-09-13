@@ -1,0 +1,10 @@
+build/
+*.log
+*.user
+.vs/
+
+# Local runtime evidence and vendor installation backups stay on this PC.
+evidence/*
+!evidence/.gitkeep
+__pycache__/
+*.pyc

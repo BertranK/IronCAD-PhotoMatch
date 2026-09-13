@@ -1,0 +1,17 @@
+#pragma once
+#define IDD_PROTO 101
+#define IDR_ADDIN 102
+#define IDC_CAPTURE 1001
+#define IDC_PICK 1002
+#define IDC_APPLY 1003
+#define IDC_PHOTO 1004
+#define IDC_RESTORE 1005
+#define IDC_SAVE 1006
+#define IDC_MEASURE 1007
+#define IDC_BACKGROUND 1008
+#define IDC_POSITION 1010
+#define IDC_DIRECTION 1011
+#define IDC_UP 1012
+#define IDC_FOV 1013
+#define IDC_LOG 1014
+#define IDC_FOCAL 1015

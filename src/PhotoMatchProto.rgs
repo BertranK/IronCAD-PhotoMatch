@@ -1,0 +1,23 @@
+HKCR
+{
+ NoRemove CLSID
+ {
+  ForceRemove {A44D3379-FC03-4CBF-9B10-A8CC56B3A7E1} = s 'IronCAD PhotoMatch Proto 0'
+  {
+   InprocServer32 = s '%MODULE%'
+   {
+    val ThreadingModel = s 'Apartment'
+   }
+   'Name' = s 'PhotoMatchProto'
+   'Description' = s 'Camera, vertex and image registration diagnostics for IronCAD 2027'
+   ForceRemove 'Required Categories'
+   {
+    {2D652377-6B3B-450e-840A-5DE09A48B464} = s 'IronCAD, LLC Application AddIn Site'
+   }
+   ForceRemove 'Implemented Categories'
+   {
+    {6CA5004A-8CD0-454d-88BA-E9700C9789A6} = s 'IRONCAD Application Addins'
+   }
+  }
+ }
+}
