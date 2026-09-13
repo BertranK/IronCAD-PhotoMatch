@@ -116,6 +116,9 @@ private:
     unsigned int dpi_=0;
     void CheckContext();
     void Capture();
+    void Resume();
+    photomatch::Convention OverlayConvention();
+    void Reconnect(const nlohmann::json& saved);
     void Pick();
     void StopPicking();
     void Apply(const photomatch::Camera& input);

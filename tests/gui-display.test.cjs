@@ -5,6 +5,37 @@ const {resolve} = require('node:path');
 const {pathToFileURL} = require('node:url');
 const {chromium} = require('../gui/web/node_modules/playwright');
 
+test('calculate exposes residuals and editing requires a fresh camera preview', async () => {
+  const browser=await chromium.launch({channel:'msedge',headless:true});
+  try {
+    const page=await browser.newPage({viewport:{width:1320,height:860}});
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.addInitScript(preview=>{
+      window.testPoints=Object.fromEntries(Array.from({length:6},(_,i)=>['P'+(i+1),[200+i*150,300]]));
+      window.testFit=null;window.previewCount=0;
+      const state={session:'test',capture_id:1,captured:true,document:'sample.ics',points:Object.keys(testPoints).map(id=>({id,object_name:'Brick',api_coordinates:[0,0,0],transformed_coordinates:[0,0,0]}))};
+      const result=()=>({ok:true,state,image_points:structuredClone(testPoints),fit:testFit});
+      window.pywebview={api:{preferences:async()=>({theme:'dark',language:'en',selection:'en'}),call:async()=>result(),
+        open_project:async()=>({...result(),image:{preview,width:1600,height:1000,name:'sample.png'}}),
+        fit_points:async()=>{testFit={ids:Object.keys(testPoints),stable:true,precision_passed:false,max_error_px:3.4,point_errors_px:Array(6).fill(3.4),predicted_image_px:Object.values(testPoints).map(p=>[p[0]+3.4,p[1]])};return result();},
+        preview_fit:async()=>{previewCount++;return result();},
+        set_point:async(s,c,id,x,y)=>{testPoints[id]=[x,y];testFit=null;return result();}}};
+    },'data:image/png;base64,'+readFileSync(resolve(__dirname,'fixture/reference.png')).toString('base64'));
+    await page.goto(pathToFileURL(resolve(__dirname,'../gui/web/index.html')).href);
+    await page.evaluate(()=>window.dispatchEvent(new Event('pywebviewready')));
+    await page.locator('#openProject').click();await page.waitForFunction(()=>photo!==null);
+    assert.equal(await page.locator('#overlay').isDisabled(),true);
+    await page.locator('#fitCamera').click();await page.waitForFunction(()=>!busy);
+    assert.match(await page.locator('#fitSummary').textContent(),/3.40/);
+    assert.equal(await page.locator('#alignmentDot').evaluate(e=>e.classList.contains('ready')),false);
+    await page.locator('#overlay').click();await page.waitForFunction(()=>!busy);
+    assert.equal(await page.evaluate(()=>previewCount),1);
+    const p=await page.evaluate(()=>{const v=view(),r=photoCanvas.getBoundingClientRect();return {x:r.x+v.x+200*v.scale,y:r.y+v.y+300*v.scale};});
+    await page.mouse.move(p.x,p.y);await page.mouse.down();await page.mouse.move(p.x+15,p.y+5);await page.mouse.up();await page.waitForFunction(()=>!busy);
+    assert.equal(await page.locator('#overlay').isDisabled(),true);assert.deepEqual(errors,[]);
+  } finally {await browser.close();}
+});
+
 test('display scaling, live theme/language changes and resize preserve original photo coordinates', async () => {
   const browser = await chromium.launch({channel:'msedge', headless:true});
   const preview = 'data:image/png;base64,' + readFileSync(resolve(__dirname,'fixture/reference.png')).toString('base64');
@@ -109,6 +140,12 @@ test('restored photo points can be reopened, dragged, and replaced without chang
       const previous=await page.evaluate(()=>testPoints.P3),p3=await screen('P3');await page.evaluate(()=>{failPoint=true;});
       await page.mouse.move(p3.x,p3.y);await page.mouse.down();await page.mouse.move(p3.x+25,p3.y+15);await page.mouse.up();await page.waitForFunction(()=>!busy);
       assert.deepEqual(await page.evaluate(()=>imagePoints.P3),previous);
+      await page.evaluate(()=>{failPoint=false;accept({ok:true,state:{session:'new',capture_id:0,captured:false,points:[]},review:structuredClone(testState),image_points:structuredClone(testPoints)});});
+      assert.equal(await page.locator('.point-row').count(),4);
+      for(const id of ['apply','capture','pick','overlay','measure'])assert.equal(await page.locator('#'+id).isDisabled(),true);
+      assert.equal(await page.locator('#alignmentStatus').textContent(),'Model connection required');
+      const reviewed=await screen('P1');await page.mouse.move(reviewed.x,reviewed.y);await page.mouse.down();await page.mouse.move(reviewed.x+10,reviewed.y+10);await page.mouse.up();await page.waitForFunction(()=>!busy);
+      assert.equal(await page.evaluate(()=>state.points.length),0);
       assert.equal(await page.evaluate(()=>state.captured),false);assert.deepEqual(errors,[]);
       await context.close();
     }

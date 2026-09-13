@@ -1,5 +1,21 @@
 (function (root) {
   const en = {
+    '카메라 계산':'Calculate camera',
+    '계산 대기':'Ready to calculate',
+    '깊이가 다른 점을 추가하세요.':'Add points at different depths',
+    '대응점 일치':'Matched points aligned',
+    '대응점을 확인하세요.':'Refine the points',
+    '최대 오차':'Max error',
+    '원본 사진 px':'source photo px',
+    '깊이가 다른 점 6개 이상':'At least 6 points at different depths',
+    '깊이가 다른 모델 점 6개 이상을 연결하세요.':'Match at least 6 model points at different depths.',
+    '올바른 대응점을 선택하세요.':'Choose valid corresponding points.',
+    '중복된 대응점을 확인하세요.':'Check duplicate corresponding points.',
+    '카메라를 계산하지 못했습니다. 대응점을 확인하세요.':'Could not calculate a camera. Check the corresponding points.',
+    '카메라를 먼저 계산하세요.':'Calculate the camera first.',
+    '투영 측정이 완료되지 않았습니다.':'Projection measurement did not finish.',
+
+    '모델 연결을 확인하세요.':'Model connection required',
     '연결 확인 중':'Connecting', 'IronCAD 연결됨':'Connected to IronCAD', 'IronCAD 연결 대기':'Waiting for IronCAD',
     '결과 저장':'Save results', '결과 열기':'Open results', '사진':'Photo', '대응점':'Points', '정합':'Alignment', '＋ 사진 열기':'＋ Open photo',
     'PhotoMatch 결과 파일을 선택하세요.':'Choose a PhotoMatch result file.', '저장한 사진과 현재 파일이 다릅니다.':'The photo differs from the saved file.',

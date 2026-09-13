@@ -76,7 +76,7 @@ class ApiTests(unittest.TestCase):
             self.assertEqual({'P1':[12,34]},result['image_points'])
             self.assertFalse(result['state']['captured'])
             self.assertEqual(image['sha256'],result['image']['sha256'])
-            for change in ['session','photo','vertex']:
+            for change in ['photo','vertex']:
                 bad=json.loads(json.dumps(data))
                 if change=='session':bad['host']['session']='old'
                 elif change=='photo':bad['image']['sha256']='changed'
@@ -84,4 +84,77 @@ class ApiTests(unittest.TestCase):
                 path.write_text(json.dumps(bad),encoding='utf-8')
                 with self.assertRaises(ValueError):api._load_project(path)
                 self.assertEqual({'P1':[12,34]},api._points)
+    def test_old_session_reopens_for_photo_editing_without_host_mutation(self):
+        saved={'session':'old','capture_id':1,'points':[{'id':'P1','vertex_id':10}]}
+        current={'session':'new','capture_id':0,'points':[]}
+        image=load_image(Path(__file__).parent/'fixture/reference.png')
+        data=make_project(saved,image,{'P1':[12,34]})
+        api=Api();api._bridge=FakeBridge(current)
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'result.json';path.write_text(json.dumps(data),encoding='utf-8')
+            result=api._load_project(path)
+            self.assertEqual(current,result['state'])
+            self.assertEqual(saved,result['review'])
+            self.assertTrue(api.set_point('new',0,'P1',22,44)['ok'])
+            with patch.object(api._bridge,'call',side_effect=AssertionError('must not mutate host')):
+                for command in ['capture','apply','pick','photo','background','measure']:
+                    self.assertFalse(api.call(command,'new')['ok'])
+            self.assertEqual({'P1':[22,44]},api.call('status')['image_points'])
+    def test_reopen_reconnects_only_matching_document_with_host_verification(self):
+        saved={'session':'old','capture_id':1,'document':'test.ics','points':[{'id':'P1','vertex_id':10}]}
+        current={'session':'new','capture_id':0,'document':'test.ics','points':[],'saved_point_reconnect':True}
+        rebound={**current,'capture_id':1,'points':saved['points'],'captured':True}
+        image=load_image(Path(__file__).parent/'fixture/reference.png');data=make_project(saved,image,{'P1':[12,34]})
+        api=Api();api._bridge=FakeBridge(current)
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'result.json';path.write_text(json.dumps(data),encoding='utf-8')
+            with patch.object(api._bridge,'call',side_effect=[current,rebound]) as bridge:
+                result=api._load_project(path)
+                self.assertIsNone(result['review']);self.assertEqual({'P1':[12,34]},result['image_points'])
+                self.assertEqual(('reconnect','new',{'host':saved}),bridge.call_args.args)
+            with patch.object(api._bridge,'call',side_effect=[current,ValueError('changed vertex')]):
+                with self.assertRaisesRegex(ValueError,'changed vertex'):api._load_project(path)
+                self.assertEqual({'P1':[12,34]},api._points)
+    def fitted_api(self):
+        state={'session':'a','capture_id':1,'points':[{'id':f'P{i+1}','transformed_coordinates':[i%2,i//2,i%3]} for i in range(6)]}
+        api=Api();api._bridge=FakeBridge(state);api._accept(state)
+        api._image={'width':750,'height':750,'overlay_path':'photo.png'}
+        api._points={p['id']:[100+i*20,200] for i,p in enumerate(state['points'])}
+        fit={'stable':True,'camera':{},'focal_px':1000,'max_error_px':3.4,'precision_passed':False}
+        with patch('solver.fit_camera',return_value=fit):self.assertTrue(api.fit_points()['ok'])
+        return api,state
+
+    def test_fit_invalidated_by_edit_or_changed_model(self):
+        api,state=self.fitted_api()
+        self.assertFalse(api._fit['precision_passed'])
+        self.assertTrue(api.set_point('a',1,'P1',101,200)['ok']);self.assertIsNone(api._fit)
+        api,state=self.fitted_api()
+        state['points'][0]['transformed_coordinates'][0]=99
+        self.assertIsNone(api.call('status')['fit'])
+
+    def test_slow_fit_cannot_attach_to_changed_capture(self):
+        api,state=self.fitted_api()
+        def fit(*args):
+            state['capture_id']=2
+            return {'stable':True}
+        with patch('solver.fit_camera',side_effect=fit):self.assertFalse(api.fit_points()['ok'])
+        self.assertIsNone(api._fit);self.assertEqual({},api._points)
+
+    def test_preview_measures_actual_screen_error_and_review_never_applies(self):
+        api,state=self.fitted_api();commands=[]
+        def bridge(command,*args):
+            commands.append(command)
+            if command=='measure':
+                state['photo_rectangle_physical']=[10,20,1500,1500]
+                state['measurements']=[{'picked_point_projections':[
+                    {'id':id,'transformed_as_world_px':[10+xy[0]*2+2,20+xy[1]*2]} for id,xy in api._points.items()]}]
+            return state
+        with patch.object(api._bridge,'call',side_effect=bridge):
+            result=api.preview_fit()
+            self.assertTrue(result['ok'],result)
+            self.assertEqual(2,result['fit']['screen_max_error_px']);self.assertFalse(result['fit']['screen_passed'])
+            self.assertEqual(['status','apply','measure','photo','measure'],commands)
+            commands.clear();api._review=state.copy()
+            self.assertFalse(api.preview_fit()['ok']);self.assertEqual(['status'],commands)
+
 if __name__=='__main__':unittest.main()

@@ -5,6 +5,7 @@ let imagePoints = {}, selected = null, zoom = 1, pan = {x: 0, y: 0}, drag = null
 let sessionKey = '', rowsKey = '', cameraKey = '';
 const C = window.PhotoCoordinates;
 const L = window.PhotoLanguage, t = L.t;
+let review = null, fitResult = null;
 let preferencesKey = '';
 function updatePreferences(value) {
   const key = JSON.stringify(value); if (key === preferencesKey) return; preferencesKey = key;
@@ -22,7 +23,7 @@ window.hostActivated = result => accept(result);
 function accept(result) {
   if (!result.ok) throw new Error(result.error);
   if (result.state) {
-    state = result.state; connected = true;
+    state = result.state; review = result.review || null; fitResult = result.fit || null; connected = true;
     const key = state.session + ':' + state.capture_id;
     if (sessionKey !== key) { if (drag?.id) { drag = null; busy = false; } selected = null; imagePoints = {}; rowsKey = ''; sessionKey = key; }
     imagePoints = result.image_points || {};
@@ -39,28 +40,31 @@ async function action(command, args = {}) {
 function render() {
   $('connection').textContent = connected ? t('IronCAD 연결됨') : t('IronCAD 연결 대기');
   $('connectionDot').classList.toggle('ready', connected);
-  $('document').textContent = connected && state?.document ? state.document : '—';
-  const captured = connected && state?.captured, points = connected ? state?.points || [] : [];
-  $('pick').disabled = busy || !connected || !state?.document;
+  $('document').textContent = connected && (review || state)?.document ? (review || state).document : '—';
+  const captured = connected && !review && state?.captured, points = connected ? (review || state)?.points || [] : [];
+  $('pick').disabled = !!review || busy || !connected || !state?.document;
   $('pick').textContent = state?.picking && connected ? t('점 선택 마치기') : t('＋ 모델 점 선택');
-  $('capture').disabled = busy || !connected || !state?.document;
-  ['measure', 'restore'].forEach(id => $(id).disabled = busy || !captured);
-  $('apply').disabled = busy || !connected || !(captured || state?.restored);
+  $('capture').disabled = !!review || busy || !connected || !state?.document;
+  $('measure').disabled = busy || !captured;
+  $('restore').disabled = busy || !connected || !state?.captured;
+  $('apply').disabled = !!review || busy || !connected || !(captured || state?.restored);
   $('background').disabled = busy || !captured || !photo;
-  $('overlay').disabled = busy || !captured || !photo || !state?.fov_resolved || !state?.test_camera;
-  $('save').disabled = busy || !connected || !state?.original_camera;
+  $('fitCamera').disabled = busy || !connected || !photo || Object.keys(imagePoints).length < 6;
+  $('overlay').disabled = busy || !!review || !connected || !photo || !fitResult?.stable;
+  $('save').disabled = busy || !connected || !(review || state)?.original_camera;
   $('openImage').disabled = $('openEmpty').disabled = busy;
   $('openProject').disabled = busy || !connected;
   $('pairCount').textContent = `${Object.keys(imagePoints).length} / ${points.length}`;
-  $('alignmentStatus').textContent = state?.fov_resolved ? t('투영 검증 통과') : t('검증 대기');
-  $('alignmentDot').classList.toggle('ready', !!state?.fov_resolved);
+  $('alignmentStatus').textContent = review ? t('모델 연결을 확인하세요.') : !fitResult ? t('계산 대기') : !fitResult.stable ? t('깊이가 다른 점을 추가하세요.') : fitResult.precision_passed ? t('대응점 일치') : t('대응점을 확인하세요.');
+  $('fitSummary').textContent = fitResult ? `${t('최대 오차')} · ${fitResult.max_error_px.toFixed(2)} ${t('원본 사진 px')}` : t('깊이가 다른 점 6개 이상');
+  $('alignmentDot').classList.toggle('ready', !review && !!fitResult?.precision_passed);
   $('stepImage').classList.toggle('active', !photo);
-  $('stepPoints').classList.toggle('active', !!photo && !state?.fov_resolved);
-  $('stepResult').classList.toggle('active', !!state?.fov_resolved);
+  $('stepPoints').classList.toggle('active', !!photo && !fitResult);
+  $('stepResult').classList.toggle('active', !!fitResult);
   $('footerState').textContent = !connected ? t('연결 대기') : busy ? t('작업 중') : state?.picking ? t('모델 점 선택 중') : t('준비');
   if (selected && !points.some(p => p.id === selected)) selected = null;
   if (!selected && points.length) selected = (points.find(p => !imagePoints[p.id]) || points[0]).id;
-  const key = JSON.stringify([points, imagePoints, selected]);
+  const key = JSON.stringify([points, imagePoints, selected, fitResult]);
   if (key !== rowsKey) {
     rowsKey = key; $('points').replaceChildren();
     if (!points.length) { const empty = document.createElement('p'); empty.className = 'px-3 pt-8 text-center text-xs text-slate-600'; empty.textContent = t('선택한 점이 여기에 표시됩니다'); $('points').append(empty); }
@@ -71,6 +75,7 @@ function render() {
       const dot = document.createElement('span'); dot.className = 'dot' + (imagePoints[point.id] ? ' ready' : ''); title.append(id, dot);
       const name = document.createElement('p'); name.className = 'truncate text-xs text-slate-300 mb-1'; name.textContent = point.object_name;
       const pixel = document.createElement('p'); pixel.className = 'coordinate text-slate-500'; pixel.textContent = imagePoints[point.id] ? imagePoints[point.id].map(v => v.toFixed(1)).join(' , ') : t('사진에서 위치 선택');
+      const fitIndex=fitResult?.ids.indexOf(point.id) ?? -1; if(fitIndex>=0)pixel.textContent+=` · ${fitResult.point_errors_px[fitIndex].toFixed(2)} px`;
       row.title = `API: ${point.api_coordinates.join(', ')}\n${t('변환 후보')}: ${point.transformed_coordinates.join(', ')}\n${t('좌표계 검증 대기')}`;
       row.append(title, name, pixel); row.onclick = () => { selected = point.id; render(); }; $('points').append(row);
     }
@@ -99,6 +104,12 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(x-13,y);ctx.lineTo(x+13,y);ctx.moveTo(x,y-13);ctx.lineTo(x,y+13);ctx.stroke();
     ctx.font = '11px Segoe UI'; const tw = ctx.measureText(id).width; ctx.fillStyle = '#101416e6';ctx.fillRect(x+12,y-23,tw+12,20);ctx.fillStyle = '#b8f582';ctx.fillText(id,x+18,y-9);
   }
+  if(fitResult)for(let i=0;i<fitResult.ids.length;i++){
+    const observed=imagePoints[fitResult.ids[i]];if(!observed)continue;
+    const a=C.toScreen(...observed,v),b=C.toScreen(...fitResult.predicted_image_px[i],v);
+    ctx.strokeStyle='#f7ba68';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();
+    ctx.strokeRect(b[0]-3,b[1]-3,6,6);
+  }
   $('zoom').textContent = Math.round(v.scale*100)+'%';
 }
 async function openImage(project = false) {
@@ -106,19 +117,21 @@ async function openImage(project = false) {
   try {
     const result = project ? await api.open_project() : await api.open_image(); if (!result.ok) throw new Error(result.error); if (result.cancelled) return;
     const next = new Image(); next.src = result.image.preview; await next.decode();
-    photo = result.image; bitmap = next; imagePoints = {}; zoom = 1; pan = {x:0,y:0};
-    if (project) accept(result);
+    photo = result.image; bitmap = next; imagePoints = {}; fitResult = null; zoom = 1; pan = {x:0,y:0};
+    if (project) accept(result); else review = null;
     $('empty').classList.add('hidden'); $('imageName').textContent = photo.name; $('imageSize').textContent = `${photo.width} × ${photo.height}`;
   } catch(error) { toast(t(error.message)); } finally { busy = false; render(); }
 }
 $('openImage').onclick = $('openEmpty').onclick = () => openImage();
 $('openProject').onclick = () => openImage(true);
-$('pick').onclick = async () => { if (!state?.captured && !(await action('capture'))) return; await action(state.picking ? 'stop_pick' : 'pick'); };
+$('pick').onclick = async () => { if (!state?.captured && !state?.restored && !(await action('capture'))) return; await action(state.picking ? 'stop_pick' : 'pick'); };
 $('capture').onclick = () => action('capture'); $('restore').onclick = () => action('restore'); $('measure').onclick = () => action('measure');
 $('apply').onclick = () => {
   try { const args = {}; for(const key of ['position','direction','up']) { args[key] = $(key).value.trim().split(/\s+/).map(Number); if(args[key].length!==3 || args[key].some(v=>!Number.isFinite(v))) throw new Error(t('좌표를 확인하세요.')); } args.field_sdk = Number($('field').value); if(!Number.isFinite(args.field_sdk)||args.field_sdk<=0)throw new Error(t('화각을 확인하세요.')); action('apply', args); } catch(error){toast(t(error.message));}
 };
-$('overlay').onclick = () => action('photo', {focal_px:Number($('focal').value)});
+async function fitAction(method) {if(!api||busy)return;busy=true;render();try{accept(await api[method]());}catch(error){toast(t(error.message));}finally{busy=false;render();}}
+$('fitCamera').onclick=()=>fitAction('fit_points');
+$('overlay').onclick=()=>fitAction('preview_fit');
 $('background').onclick = () => action('background');
 $('save').onclick = async () => { if(busy)return;busy=true;render();try {const r=await api.save_project(state.session,state.capture_id);if(!r.ok)throw new Error(r.error);if(!r.cancelled)toast(t('결과를 저장했습니다.'));}catch(error){toast(t(error.message));}finally{busy=false;render();} };
 $('fit').onclick = () => {zoom=1;pan={x:0,y:0};draw();};
@@ -133,7 +146,7 @@ canvas.onpointerdown = event => {
   if(!photo||busy)return;canvas.setPointerCapture(event.pointerId);
   drag={x:event.offsetX,y:event.offsetY,startX:event.offsetX,startY:event.offsetY,pan:event.button!==0};
   const id=connected&&event.button===0&&pointAt(event.offsetX,event.offsetY);
-  if(id){selected=id;Object.assign(drag,{id,original:imagePoints[id].slice(),scale:view().scale,session:state.session,capture:state.capture_id});busy=true;render();canvas.style.cursor='grabbing';}
+  if(id){fitResult=null;selected=id;Object.assign(drag,{id,original:imagePoints[id].slice(),scale:view().scale,session:state.session,capture:state.capture_id});busy=true;render();canvas.style.cursor='grabbing';}
 };
 canvas.onpointermove = event => {
   if(!photo)return;
@@ -154,7 +167,7 @@ canvas.onpointerup = async event => {
   if(!start||start.pan||Math.hypot(event.offsetX-start.startX,event.offsetY-start.startY)>4)return;
   if(!selected||!connected||busy)return;
   const p=C.toImage(event.offsetX,event.offsetY,view(),photo.width,photo.height);if(!p)return;
-  busy=true;render();try{const r=await api.set_point(state.session,state.capture_id,selected,...p);if(!r.ok)throw new Error(r.error);imagePoints=r.image_points;selected=(state.points.find(p=>!imagePoints[p.id])||{id:selected}).id;}catch(error){toast(t(error.message));}finally{busy=false;render();}
+  fitResult=null;busy=true;render();try{const r=await api.set_point(state.session,state.capture_id,selected,...p);if(!r.ok)throw new Error(r.error);imagePoints=r.image_points;selected=((review || state).points.find(p=>!imagePoints[p.id])||{id:selected}).id;}catch(error){toast(t(error.message));}finally{busy=false;render();}
 };
 canvas.onpointercancel=()=>{if(drag?.id){if(state.session===drag.session&&state.capture_id===drag.capture)imagePoints[drag.id]=drag.original;busy=false;}drag=null;render();};
 canvas.onwheel=event=>{event.preventDefault();if(!photo)return;const before=view(),px=(event.offsetX-before.x)/before.scale,py=(event.offsetY-before.y)/before.scale;zoom=Math.max(.1,Math.min(8,zoom*Math.exp(-event.deltaY*.001)));const after=view();pan.x+=event.offsetX-(after.x+px*after.scale);pan.y+=event.offsetY-(after.y+py*after.scale);draw();};

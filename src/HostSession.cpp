@@ -153,8 +153,62 @@ void HostSession::Capture() {
 void HostSession::StopPicking() {
     freeSink(selectEvents_);if(interactor_){interactor_->Stop();interactor_=nullptr;}
 }
+void HostSession::Reconnect(const nlohmann::json& saved) {
+    IZDocPtr active;checked(app_->get_ActiveDoc(&active));IZSceneDocPtr scene=active;
+    if(!scene)throw std::runtime_error("Open the saved 3D document first");
+    if(Snapshot().at("document")!=saved.at("document"))throw std::runtime_error("Open the saved document before reconnecting points");
+    std::vector<IZElementPtr> parts;
+    std::function<void(IZElement*)> visit=[&](IZElement* element){
+        eZElementType type;checked(element->get_Type(&type));
+        if(type==Z_ELEMENT_PART)parts.push_back(element);
+        if(type==Z_ELEMENT_ASSEMBLY){CComVariant children;checked(element->GetChildren(&children));
+            if(children.vt!=VT_EMPTY&&children.vt!=VT_NULL)for(auto& child:items(children)){IZElementPtr next=unknown(child);if(next)visit(next);}}
+    };
+    CComVariant children;checked(scene->GetChildElements(&children));
+    if(children.vt!=VT_EMPTY&&children.vt!=VT_NULL)for(auto& child:items(children)){IZElementPtr next=unknown(child);if(next)visit(next);}
+    const auto& records=saved.at("points");
+    if(!records.is_array()||records.empty()||records.size()>1000)throw std::runtime_error("Invalid saved points");
+    std::vector<PickedPoint> rebound;
+    auto equal=[](double a,double b){return std::isfinite(a)&&std::isfinite(b)&&std::abs(a-b)<=1e-9;};
+    for(const auto& record:records){
+        if(record.at("id")!="P"+std::to_string(rebound.size()+1))throw std::runtime_error("Invalid saved point order");
+        IZElementPtr owner;unsigned matches=0;
+        for(auto& candidate:parts){LONG id=0;checked(candidate->get_Id(&id));
+            if(std::to_string(id)==record.at("object_id").get<std::string>()){owner=candidate;++matches;}}
+        if(matches!=1)throw std::runtime_error("Saved model object is missing or ambiguous");
+        IZPartPtr part=owner;CComVariant bodies;checked(part->GetBodies(VARIANT_TRUE,&bodies));auto list=items(bodies);
+        if(list.size()!=1)throw std::runtime_error("Saved model body is ambiguous");
+        IZBodyVertexPtr vertices=unknown(list[0]);if(!vertices)throw std::runtime_error("Saved vertex API is unavailable");
+        PickedPoint point;point.element=owner;point.vertexId=record.at("vertex_id").get<long>();
+        for(const auto& old:rebound)if(sameObject(old.element,owner)&&old.vertexId==point.vertexId)throw std::runtime_error("Duplicate saved vertex");
+        LONG id=0;checked(owner->get_Id(&id));point.objectId=id;CComBSTR name;checked(owner->get_Name(&name));point.name=name;
+        CComVariant position;checked(vertices->GetPosition(point.vertexId,&position));point.apiPoint=vector3(position);
+        IZSceneElementPtr se=owner;IZMathMatrixPtr matrix;checked(se->GetTransformToGlobal(&matrix));
+        checked(matrix->GetDataCOM(point.matrix.data()));point.transformedPoint=transform(point.apiPoint,matrix);
+        auto local=record.at("api_coordinates").get<std::vector<double>>(),world=record.at("transformed_coordinates").get<std::vector<double>>(),savedMatrix=record.at("transform").get<std::vector<double>>();
+        if(local.size()!=3||world.size()!=3||savedMatrix.size()!=16)throw std::runtime_error("Invalid saved coordinates");
+        if(!equal(local[0],point.apiPoint.x)||!equal(local[1],point.apiPoint.y)||!equal(local[2],point.apiPoint.z)||
+           !equal(world[0],point.transformedPoint.x)||!equal(world[1],point.transformedPoint.y)||!equal(world[2],point.transformedPoint.z))throw std::runtime_error("Saved vertex geometry changed");
+        for(int i=0;i<16;++i)if(!equal(savedMatrix[i],point.matrix[i]))throw std::runtime_error("Saved model transform changed");
+        rebound.push_back(point);
+    }
+    // Validate every reference before replacing the current capture or its points.
+    Capture();points_=std::move(rebound);Log(L"Saved vertex references verified and reconnected.");
+}
+void HostSession::Resume() {
+    if(!captured_&&restored_&&doc_){
+        IZDocPtr active;checked(app_->get_ActiveDoc(&active));
+        if(!sameObject(active,doc_)||GraphicsWindow()!=capturedWindow_||ModelFingerprint()!=modelBefore_)
+            throw std::runtime_error("Document, viewport or model changed; capture again");
+        checked(cameras_->get_ActiveCamera(&original_));saved_=ReadCamera(original_);
+        savedCameraRecord_=jsonCameraState(saved_);restoredCameraRecord_="null";
+        captured_=true;restored_=false;modelUnchanged_=false;
+        Log(L"Camera preview resumed; existing model and photo correspondence IDs retained.");
+    }
+    CheckContext();
+}
 void HostSession::Pick() {
-    CheckContext();StopPicking();IZSelectionMgrPtr selection;checked(scene_->get_SelectionMgr(&selection));
+    Resume();StopPicking();IZSelectionMgrPtr selection;checked(scene_->get_SelectionMgr(&selection));
     checked(selection->CreateInteractor(&interactor_));IZSelectEventsPtr events;checked(interactor_->get_SelectEvents(&events));
     createSink(selectEvents_,this);checked(selectEvents_->Advise(events));checked(events->SetSelectionFilterChoices(Z_SEL_FEV,Z_SEL_FEV));
     checked(interactor_->Start());Log(L"Select a solid vertex. Face/edge clicks are ignored. Click again to restart after Escape.");
@@ -182,15 +236,7 @@ void HostSession::Select(IZElement* element,IZMathPoint*,eZEntityType type,const
 void HostSession::Apply(const Camera& input) {
     unit(cross(input.direction,input.up));
     if(!finite(input.position)||!std::isfinite(input.field)||input.field<=0)throw std::runtime_error("Invalid camera values");
-    if(!captured_&&restored_&&doc_){
-        IZDocPtr active;checked(app_->get_ActiveDoc(&active));
-        if(!sameObject(active,doc_)||GraphicsWindow()!=capturedWindow_||ModelFingerprint()!=modelBefore_)
-            throw std::runtime_error("Document, viewport or model changed; capture again");
-        checked(cameras_->get_ActiveCamera(&original_));saved_=ReadCamera(original_);
-        savedCameraRecord_=jsonCameraState(saved_);restoredCameraRecord_="null";
-        captured_=true;restored_=false;modelUnchanged_=false;
-        Log(L"Camera preview resumed; existing model and photo correspondence IDs retained.");
-    }
+    Resume();
     CheckContext();
     StopPicking();overlay_.Clear();imageFocal_=0;
     if(!test_)checked(cameras_->Add(&test_));CameraState state=saved_;state.perspective=VARIANT_TRUE;state.values=input;
@@ -267,9 +313,17 @@ void HostSession::Shutdown() {
     pipe_.Close();if(guiProcess_){CloseHandle(guiProcess_);guiProcess_=nullptr;}
     if(GetSafeHwnd())KillTimer(1);if(captured_)Guard([&]{Restore();});StopPicking();freeSink(drawEvents_);freeSink(appEvents_);overlay_.Clear();
 }
+Convention HostSession::OverlayConvention() {
+    auto result=fit(observations_);if(resolved(result))return result[0].convention;
+    CComBSTR version;checked(app_->get_ApiVersion(&version));
+    // This SDK convention was verified in actual portrait/landscape views.
+    // A fresh projection measurement must still agree in the current capture.
+    if(utf8(version)=="29.0.2.20605")for(const auto& candidate:result)
+        if(name(candidate.convention)=="minimum_radians_full"&&candidate.maxError<=1.0)return candidate.convention;
+    throw std::runtime_error("Measure landscape and portrait views to identify FOV before photo alignment");
+}
 void HostSession::Photo(const CString& path,double focal) {
-    CheckContext();if(!test_)throw std::runtime_error("Apply a test camera first");auto result=fit(observations_);
-    if(!resolved(result))throw std::runtime_error("Measure landscape and portrait views to identify FOV before photo alignment");
+    CheckContext();if(!test_)throw std::runtime_error("Apply a test camera first");OverlayConvention();
     if(!std::isfinite(focal)||focal<=0)throw std::runtime_error("Focal length must be positive");
     overlay_.Open(path,GraphicsWindow());imagePath_=path;imageFocal_=focal;recordedImageFocal_=focal;lastW_=lastH_=0;UpdateOverlay();
     Log(L"Reference image overlay enabled; 150/255 opacity. Image principal point is centered.");
@@ -280,10 +334,10 @@ void HostSession::UpdateOverlay() {
     HWND host=GraphicsWindow();CRect size=clientRect(host),renderSize;::GetClientRect(host,&renderSize);
     if(size.IsRectEmpty()||renderSize.Width()<=2||renderSize.Height()<=2){overlay_.ShowWindow(SW_HIDE);return;}
     if(lastW_!=size.Width()||lastH_!=size.Height()||lastRenderW_!=renderSize.Width()||lastRenderH_!=renderSize.Height()){
-        auto result=fit(observations_);if(!resolved(result))throw std::runtime_error("FOV no longer resolved");
+        auto convention=OverlayConvention();
         double iw=overlay_.image.GetWidth(),ih=overlay_.image.GetHeight(),rw=renderSize.Width(),rh=renderSize.Height();
         overlay_.imageRect=sdkImageRect(iw,ih,rw,rh,size.Width(),size.Height());
-        double field=sdkImageField(imageFocal_,iw,ih,rw,rh,size.Width(),size.Height(),result[0].convention);
+        double field=sdkImageField(imageFocal_,iw,ih,rw,rh,size.Width(),size.Height(),convention);
         checked(test_->put_FieldOfView(field));lastW_=size.Width();lastH_=size.Height();lastRenderW_=rw;lastRenderH_=rh;checked(scene_->Redraw());
     }overlay_.Align(host);
 }
@@ -346,6 +400,7 @@ nlohmann::json HostSession::Snapshot() {
     out["session"]=SessionId();out["capture_id"]=captureId_;out["captured"]=captured_;
     out["picking"]=bool(interactor_);out["test_camera"]=bool(test_);out["measuring"]=measuring_;
     out["logs"]=logs_;out["host_pid"]=GetCurrentProcessId();out["document"]=nullptr;out["camera"]=nullptr;
+    out["saved_point_reconnect"]=true;
     out["projection_coordinate_rule"]="sdk_pixel_endpoints_truncate_then_physical_scale";
     if(overlay_.GetSafeHwnd()){auto r=overlay_.imageRect;out["photo_rectangle_physical"]={r.x,r.y,r.w,r.h};out["photo_render_size"]={lastRenderW_,lastRenderH_};}
     if(observedDoc_){CComBSTR name;checked(observedDoc_->get_Name(&name));out["document"]=utf8(name);}
@@ -366,6 +421,7 @@ std::string HostSession::Request(const std::string& text) {
         if(command!="status"&&request.at("session").get<std::string>()!=SessionId())throw std::runtime_error("Document changed; refresh and capture again");
         auto args=request.value("args",json::object());
         if(command=="capture")Capture();
+        else if(command=="reconnect")Reconnect(args.at("host"));
         else if(command=="pick")Pick();
         else if(command=="stop_pick")StopPicking();
         else if(command=="restore")Restore();
