@@ -57,6 +57,43 @@ def apply_titlebar_theme(window, theme):
     dwm.DwmSetWindowAttribute(handle, 20, ct.byref(value), ct.sizeof(value))
 
 
+def follow_window_bounds(window):
+    """Repair the embedded child bounds after Windows restores the form."""
+    from System import Action
+    from System.Drawing import Point
+    from System.Windows.Forms import FormWindowState
+
+    form = window.native
+    user32 = ct.WinDLL("user32", use_last_error=True)
+    user32.SetWindowPos.argtypes = [wt.HWND, wt.HWND, ct.c_int, ct.c_int,
+                                   ct.c_int, ct.c_int, wt.UINT]
+    user32.SetWindowPos.restype = wt.BOOL
+
+    def attach():
+        browser = form.browser.webview
+
+        def align():
+            if form.IsDisposed or form.WindowState == FormWindowState.Minimized:
+                return
+            # WinForms can retain correct managed Bounds while the native child
+            # stays displaced by the minimized form's off-screen coordinates.
+            if browser.PointToScreen(Point(0, 0)) != form.PointToScreen(browser.Location):
+                bounds = browser.Bounds
+                user32.SetWindowPos(int(browser.Handle.ToInt64()), None,
+                                    bounds.X, bounds.Y, bounds.Width, bounds.Height,
+                                    0x0014)  # NOZORDER | NOACTIVATE
+
+        def resized(sender, event):
+            if form.WindowState != FormWindowState.Minimized:
+                form.BeginInvoke(Action(align))
+
+        form.Resize += resized
+        form.Move += resized
+        align()
+
+    form.Invoke(Action(attach))
+
+
 class Preferences:
     def __init__(self, runtime):
         user = hashlib.sha256(str(Path.home()).encode()).hexdigest()[:16]

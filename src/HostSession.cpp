@@ -302,6 +302,11 @@ void HostSession::ContextChanging(IZDoc* closing) {
     if(closing&&!sameObject(closing,doc_))return;
     if(captured_)Guard([&]{Restore();});overlay_.Clear();StopPicking();freeSink(drawEvents_);captured_=false;
     doc_=nullptr;scene_=nullptr;cameras_=nullptr;original_=nullptr;test_=nullptr;
+    // References and measurements belong to the old document, even after Restore.
+    points_.clear();observations_.clear();sampleRecords_.clear();cameraRecords_.clear();
+    measuring_=false;restored_=false;modelUnchanged_=false;capturedWindow_=nullptr;modelBefore_.clear();
+    savedCameraRecord_=restoredCameraRecord_="null";imagePath_.Empty();recordedImageFocal_=0;
+    backgroundStatus_=L"not_tested";
     Log(L"Document/view context changed. Operations stopped; capture again.");
 }
 void HostSession::ActiveDocumentChanged(IZDoc* next) {

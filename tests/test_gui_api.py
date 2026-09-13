@@ -146,6 +146,8 @@ class ApiTests(unittest.TestCase):
             commands.append(command)
             if command=='measure':
                 state['photo_rectangle_physical']=[10,20,1500,1500]
+                state['viewport']=state['photo_render_size']=[1600,1600]
+                state['projection_coordinate_rule']='sdk_pixel_endpoints_truncate_then_physical_scale'
                 state['measurements']=[{'picked_point_projections':[
                     {'id':id,'transformed_as_world_px':[10+xy[0]*2+2,20+xy[1]*2]} for id,xy in api._points.items()]}]
             return state
@@ -156,5 +158,28 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(['status','apply','measure','photo','measure'],commands)
             commands.clear();api._review=state.copy()
             self.assertFalse(api.preview_fit()['ok']);self.assertEqual(['status'],commands)
+
+    def test_screen_comparison_preserves_raw_error_and_physical_pixel_gate(self):
+        api,state=self.fitted_api()
+        state['photo_rectangle_physical']=[.9,.9,750,750]
+        state['viewport']=state['photo_render_size']=[1000,1000]
+        state['projection_coordinate_rule']='sdk_pixel_endpoints_truncate_then_physical_scale'
+        api._points={id:[100,200] for id in api._fit['ids']}
+        state['measurements']=[{'picked_point_projections':[
+            {'id':id,'transformed_as_world_px':[100,200]} for id in api._fit['ids']]}]
+        with patch.object(api._bridge,'call',return_value=state):
+            result=api.preview_fit()
+            self.assertTrue(result['ok'],result)
+            self.assertGreater(result['fit']['screen_max_error_px'],1)
+            self.assertFalse(result['fit']['screen_passed'])
+            self.assertEqual(0,result['fit']['sdk_raster_max_error_px'])
+            self.assertTrue(result['fit']['sdk_raster_passed'])
+            # A one-render-pixel displacement is 1.5 physical pixels here and
+            # must still fail; DPI virtualization does not widen the threshold.
+            state['viewport']=[1500,1500]
+            for row in state['measurements'][0]['picked_point_projections']:
+                row['transformed_as_world_px']=[100.5,201]
+            result=api.preview_fit()
+            self.assertFalse(result['fit']['sdk_raster_passed'])
 
 if __name__=='__main__':unittest.main()

@@ -7,7 +7,7 @@ import traceback
 import copy
 import math
 import time
-from preferences import Preferences, enable_per_monitor_dpi, initial_window_size, apply_titlebar_theme
+from preferences import Preferences, enable_per_monitor_dpi, initial_window_size, apply_titlebar_theme, follow_window_bounds
 
 ROOT = Path(__file__).resolve().parent
 RUNTIME = ROOT / ".runtime"
@@ -188,10 +188,25 @@ class Api:
                 state = measure()
                 rect = state['photo_rectangle_physical']
                 projections = {p['id']: p['transformed_as_world_px'] for p in state['measurements'][-1]['picked_point_projections']}
-                errors = [math.dist(projections[id], [rect[0]+self._points[id][0]*rect[2]/self._image['width'],
-                                                      rect[1]+self._points[id][1]*rect[3]/self._image['height']]) for id in result['ids']]
-                result['screen_max_error_px'] = max(errors)
-                result['screen_passed'] = max(errors) <= 1
+                if state.get('projection_coordinate_rule') != 'sdk_pixel_endpoints_truncate_then_physical_scale':
+                    raise ValueError('Unsupported IronCAD projection coordinate rule')
+                pixel_size = [p/r for p, r in zip(state['viewport'], state['photo_render_size'])]
+                continuous, errors = [], []
+                for id in result['ids']:
+                    expected = [rect[0]+self._points[id][0]*rect[2]/self._image['width'],
+                                rect[1]+self._points[id][1]*rect[3]/self._image['height']]
+                    continuous.append(math.dist(projections[id], expected))
+                    # Compare like-for-like with the SDK's integer render grid,
+                    # then convert both positions to physical pixels.
+                    raster = [math.trunc(x/step)*step for x, step in zip(expected, pixel_size)]
+                    errors.append(math.dist(projections[id], raster))
+                result['sdk_raster_max_error_px'] = max(errors)
+                result['sdk_raster_passed'] = max(errors) <= 1
+                result['screen_error_coordinate_rule'] = state['projection_coordinate_rule']
+                # Raster agreement diagnoses SDK rounding; it must not turn a
+                # failed continuous photo-alignment measurement into a pass.
+                result['screen_max_error_px'] = max(continuous)
+                result['screen_passed'] = max(continuous) <= 1
                 return self._accept(state)
         except Exception as error:
             return {'ok': False, 'error': str(error)}
@@ -264,6 +279,7 @@ def main():
         window.events.maximized += minimized.clear
         def activate_requests():
             window.events.loaded.wait()
+            follow_window_bounds(window)
             while not window.events.closed.wait(.25):
                 try:
                     request = instance.poll()
