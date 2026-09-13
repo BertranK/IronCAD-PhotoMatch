@@ -180,8 +180,18 @@ void HostSession::Select(IZElement* element,IZMathPoint*,eZEntityType type,const
     }
 }
 void HostSession::Apply(const Camera& input) {
-    CheckContext();unit(cross(input.direction,input.up));
+    unit(cross(input.direction,input.up));
     if(!finite(input.position)||!std::isfinite(input.field)||input.field<=0)throw std::runtime_error("Invalid camera values");
+    if(!captured_&&restored_&&doc_){
+        IZDocPtr active;checked(app_->get_ActiveDoc(&active));
+        if(!sameObject(active,doc_)||GraphicsWindow()!=capturedWindow_||ModelFingerprint()!=modelBefore_)
+            throw std::runtime_error("Document, viewport or model changed; capture again");
+        checked(cameras_->get_ActiveCamera(&original_));saved_=ReadCamera(original_);
+        savedCameraRecord_=jsonCameraState(saved_);restoredCameraRecord_="null";
+        captured_=true;restored_=false;modelUnchanged_=false;
+        Log(L"Camera preview resumed; existing model and photo correspondence IDs retained.");
+    }
+    CheckContext();
     StopPicking();overlay_.Clear();imageFocal_=0;
     if(!test_)checked(cameras_->Add(&test_));CameraState state=saved_;state.perspective=VARIANT_TRUE;state.values=input;
     state.position=xyz(input.position);state.direction=xyz(input.direction);state.up=xyz(input.up);

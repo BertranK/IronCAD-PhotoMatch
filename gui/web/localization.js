@@ -1,10 +1,12 @@
 (function (root) {
   const en = {
     '연결 확인 중':'Connecting', 'IronCAD 연결됨':'Connected to IronCAD', 'IronCAD 연결 대기':'Waiting for IronCAD',
-    '결과 저장':'Save results', '사진':'Photo', '대응점':'Points', '정합':'Alignment', '＋ 사진 열기':'＋ Open photo',
+    '결과 저장':'Save results', '결과 열기':'Open results', '사진':'Photo', '대응점':'Points', '정합':'Alignment', '＋ 사진 열기':'＋ Open photo',
+    'PhotoMatch 결과 파일을 선택하세요.':'Choose a PhotoMatch result file.', '저장한 사진과 현재 파일이 다릅니다.':'The photo differs from the saved file.',
     '＋ 모델 점 선택':'＋ Pick model points', '점 선택 마치기':'Finish picking', '선택한 점이 여기에 표시됩니다':'Your points appear here',
     'DOCUMENT':'Document', 'ALIGNMENT':'Alignment', '축소':'Zoom out', '확대':'Zoom in', '맞춤':'Fit',
     '사진에서 시작하세요':'Start with a photo', '사진 열기':'Open photo', '스크롤 확대 · 우클릭 이동':'Scroll to zoom · Right-drag to pan',
+    '점 끌어서 수정 · 스크롤 확대 · 우클릭 이동':'Drag points to edit · Scroll to zoom · Right-drag to pan',
     '카메라 정합':'Camera alignment', '검증 대기':'Awaiting validation', '투영 검증 통과':'Projection verified',
     'IronCAD에서 확인 ↗':'Preview in IronCAD ↗', '원래 보기로':'Restore view', '카메라 조정':'Adjust camera',
     '위치 · X Y Z':'Position · X Y Z', '방향 · X Y Z':'Direction · X Y Z', '위쪽 · X Y Z':'Up · X Y Z',

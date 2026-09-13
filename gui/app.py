@@ -86,7 +86,7 @@ class Api:
             with self._lock:
                 state = self._bridge.call("status")
                 self._accept(state)
-                if (session, capture_id) != self._key or not state["captured"]:
+                if (session, capture_id) != self._key:
                     raise ValueError("문서가 바뀌었습니다. 모델 점을 다시 선택하세요.")
                 if point_id not in {p["id"] for p in state["points"]}:
                     raise ValueError("모델 점을 먼저 선택하세요.")
@@ -96,6 +96,37 @@ class Api:
                 return {"ok": True, "image_points": self._points.copy()}
         except Exception as error:
             return {"ok": False, "error": str(error)}
+
+    def open_project(self):
+        try:
+            paths = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False,
+                                                     file_types=("PhotoMatch (*.json)",))
+            if not paths:
+                return {"ok": True, "cancelled": True}
+            return self._load_project(paths[0])
+        except Exception as error:
+            return {"ok": False, "error": str(error)}
+
+    def _load_project(self, path):
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if data.get("schema_version") != 2:
+            raise ValueError("PhotoMatch 결과 파일을 선택하세요.")
+        image = load_image(data["image"]["path"])
+        if image["sha256"] != data["image"]["sha256"]:
+            raise ValueError("저장한 사진과 현재 파일이 다릅니다.")
+        with self._lock:
+            state = self._bridge.call("status")
+            saved = data["host"]
+            if (saved["session"], saved["capture_id"]) != (state["session"], state["capture_id"]):
+                raise ValueError("문서가 바뀌었습니다. 모델 점을 다시 선택하세요.")
+            if saved["points"] != state["points"]:
+                raise ValueError("모델의 대응점이 바뀌었습니다.")
+            points = {p["id"]: validate_pixel(*p["image_px"], image) for p in data["correspondences"]}
+            if len(points) != len(data["correspondences"]) or not set(points) <= {p["id"] for p in state["points"]}:
+                raise ValueError("모델의 대응점이 바뀌었습니다.")
+            self._accept(state)
+            self._image, self._points = image, points
+            return {**self._accept(state), "image": image}
 
     def save_project(self, session, capture_id):
         try:

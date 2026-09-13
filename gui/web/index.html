@@ -9,11 +9,11 @@
   <div class="flex h-full flex-col">
     <header class="flex h-16 shrink-0 items-center justify-between border-b border-line px-6">
       <div class="flex items-center gap-3"><div class="flex size-8 items-center justify-center rounded-lg bg-mint text-ink"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 8V3h5m8 0h5v5m0 8v5h-5M8 21H3v-5"/><circle cx="12" cy="12" r="4"/><path d="M12 5v3m0 8v3M5 12h3m8 0h3"/></svg></div><span class="text-lg font-semibold tracking-tight">PhotoMatch</span><span class="ml-1 rounded border border-line px-1.5 py-0.5 text-[9px] tracking-wider text-slate-500">PROTO</span></div>
-      <div class="header-actions flex items-center gap-4"><label class="language-control"><span aria-hidden="true">◎</span><select id="language" aria-label="언어" data-i18n-aria-label="언어"><option value="system" data-i18n="시스템 설정">시스템 설정</option><option value="ko">한국어</option><option value="en">English</option></select></label><div class="flex items-center gap-2"><span id="connectionDot" class="dot"></span><span id="connection" class="text-xs text-slate-400"><span data-i18n="연결 확인 중">연결 확인 중</span></span></div><button id="save" class="btn" disabled><span data-i18n="결과 저장">결과 저장</span><span class="text-slate-500">↗</span></button></div>
+      <div class="header-actions flex items-center gap-4"><label class="language-control"><span aria-hidden="true">◎</span><select id="language" aria-label="언어" data-i18n-aria-label="언어"><option value="ko">한국어</option><option value="en">English</option></select></label><div class="flex items-center gap-2"><span id="connectionDot" class="dot"></span><span id="connection" class="text-xs text-slate-400"><span data-i18n="연결 확인 중">연결 확인 중</span></span></div><button id="save" class="btn" disabled><span data-i18n="결과 저장">결과 저장</span><span class="text-slate-500">↗</span></button></div>
     </header>
     <nav class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-panel/50 px-6">
       <div class="flex items-center gap-7"><span id="stepImage" class="step active"><span class="coordinate">01</span><span data-i18n="사진">사진</span></span><span class="text-slate-700">/</span><span id="stepPoints" class="step"><span class="coordinate">02</span><span data-i18n="대응점">대응점</span></span><span class="text-slate-700">/</span><span id="stepResult" class="step"><span class="coordinate">03</span><span data-i18n="정합">정합</span></span></div>
-      <button id="openImage" class="mini"><span data-i18n="＋ 사진 열기">＋ 사진 열기</span></button>
+      <div class="flex items-center gap-1"><button id="openProject" class="mini" disabled><span data-i18n="결과 열기">결과 열기</span></button><button id="openImage" class="mini"><span data-i18n="＋ 사진 열기">＋ 사진 열기</span></button></div>
     </nav>
     <main class="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_280px]">
       <aside class="flex min-h-0 flex-col border-r border-line bg-panel/40">
@@ -33,7 +33,7 @@
           <div id="activePoint" class="pointer-events-none absolute top-4 left-4 hidden rounded-lg border border-mint/30 bg-ink/90 px-3 py-2 text-xs text-mint"></div>
           <div id="toast" role="status" class="pointer-events-none absolute right-4 bottom-4 left-4 hidden rounded-xl border border-line bg-panel px-4 py-3 text-xs shadow-xl"></div>
         </div>
-        <div class="flex h-10 shrink-0 items-center justify-between px-5 text-[10px] text-slate-500"><span id="canvasHint"><span data-i18n="스크롤 확대 · 우클릭 이동">스크롤 확대 · 우클릭 이동</span></span><span id="cursor" class="coordinate">—</span></div>
+        <div class="flex h-10 shrink-0 items-center justify-between px-5 text-[10px] text-slate-500"><span id="canvasHint"><span data-i18n="점 끌어서 수정 · 스크롤 확대 · 우클릭 이동">점 끌어서 수정 · 스크롤 확대 · 우클릭 이동</span></span><span id="cursor" class="coordinate">—</span></div>
       </section>
       <aside class="overflow-y-auto border-l border-line bg-panel/40 p-5">
         <p class="section-label mb-5" data-i18n="ALIGNMENT">ALIGNMENT</p>

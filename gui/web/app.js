@@ -9,11 +9,11 @@ let preferencesKey = '';
 function updatePreferences(value) {
   const key = JSON.stringify(value); if (key === preferencesKey) return; preferencesKey = key;
   document.documentElement.dataset.theme = value.theme;
-  L.setLanguage(value.language); L.localize(document); $('language').value = value.selection; rowsKey = ''; render();
+  L.setLanguage(value.language); L.localize(document); $('language').value = value.language; rowsKey = ''; render();
 }
 $('language').onchange = async () => {
   try { updatePreferences(await api.set_language($('language').value)); }
-  catch (_) { toast(t('설정을 저장하지 못했습니다.')); $('language').value = JSON.parse(preferencesKey || '{}').selection || 'system'; }
+  catch (_) { toast(t('설정을 저장하지 못했습니다.')); $('language').value = JSON.parse(preferencesKey || '{}').language || 'en'; }
 };
 function toast(message) { $('toast').textContent = message; $('toast').classList.remove('hidden'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.add('hidden'), 6500); }
 window.closeError = error => toast(t('복원 후 닫을 수 있습니다.') + ' ' + t(error));
@@ -24,7 +24,7 @@ function accept(result) {
   if (result.state) {
     state = result.state; connected = true;
     const key = state.session + ':' + state.capture_id;
-    if (sessionKey !== key) { selected = null; imagePoints = {}; rowsKey = ''; sessionKey = key; }
+    if (sessionKey !== key) { if (drag?.id) { drag = null; busy = false; } selected = null; imagePoints = {}; rowsKey = ''; sessionKey = key; }
     imagePoints = result.image_points || {};
   }
   render(); return result;
@@ -44,11 +44,13 @@ function render() {
   $('pick').disabled = busy || !connected || !state?.document;
   $('pick').textContent = state?.picking && connected ? t('점 선택 마치기') : t('＋ 모델 점 선택');
   $('capture').disabled = busy || !connected || !state?.document;
-  ['apply', 'measure', 'restore'].forEach(id => $(id).disabled = busy || !captured);
+  ['measure', 'restore'].forEach(id => $(id).disabled = busy || !captured);
+  $('apply').disabled = busy || !connected || !(captured || state?.restored);
   $('background').disabled = busy || !captured || !photo;
   $('overlay').disabled = busy || !captured || !photo || !state?.fov_resolved || !state?.test_camera;
   $('save').disabled = busy || !connected || !state?.original_camera;
   $('openImage').disabled = $('openEmpty').disabled = busy;
+  $('openProject').disabled = busy || !connected;
   $('pairCount').textContent = `${Object.keys(imagePoints).length} / ${points.length}`;
   $('alignmentStatus').textContent = state?.fov_resolved ? t('투영 검증 통과') : t('검증 대기');
   $('alignmentDot').classList.toggle('ready', !!state?.fov_resolved);
@@ -77,7 +79,7 @@ function render() {
   const ck = JSON.stringify([sessionKey, state?.camera_apply?.length]);
   if (camera && cameraKey !== ck) { cameraKey = ck; for (const key of ['position','direction','up']) $(key).value = camera[key].join(' '); $('field').value = camera.field_sdk; }
   $('activePoint').textContent = selected ? selected + ' · ' + t('사진에서 위치 선택') : '';
-  $('activePoint').classList.toggle('hidden', !selected || !photo || !captured);
+  $('activePoint').classList.toggle('hidden', !selected || !photo || !connected);
   $('logs').textContent = (state?.logs || []).slice(-15).join('\n');
   const best = state?.fov_candidates?.[0];
   $('metrics').textContent = state ? [`SDK ${state.sdk_version}`, state.viewport ? state.viewport.join(' × ') + ` · DPI ${state.dpi}` : '', best ? `${best.name}\n${best.max_error_px?.toFixed(3) ?? '—'} px` : t('투영 미측정')].filter(Boolean).join('\n') : '—';
@@ -99,16 +101,18 @@ function draw() {
   }
   $('zoom').textContent = Math.round(v.scale*100)+'%';
 }
-async function openImage() {
+async function openImage(project = false) {
   if (!api || busy) return; busy = true; render();
   try {
-    const result = await api.open_image(); if (!result.ok) throw new Error(result.error); if (result.cancelled) return;
+    const result = project ? await api.open_project() : await api.open_image(); if (!result.ok) throw new Error(result.error); if (result.cancelled) return;
     const next = new Image(); next.src = result.image.preview; await next.decode();
     photo = result.image; bitmap = next; imagePoints = {}; zoom = 1; pan = {x:0,y:0};
+    if (project) accept(result);
     $('empty').classList.add('hidden'); $('imageName').textContent = photo.name; $('imageSize').textContent = `${photo.width} × ${photo.height}`;
   } catch(error) { toast(t(error.message)); } finally { busy = false; render(); }
 }
-$('openImage').onclick = $('openEmpty').onclick = openImage;
+$('openImage').onclick = $('openEmpty').onclick = () => openImage();
+$('openProject').onclick = () => openImage(true);
 $('pick').onclick = async () => { if (!state?.captured && !(await action('capture'))) return; await action(state.picking ? 'stop_pick' : 'pick'); };
 $('capture').onclick = () => action('capture'); $('restore').onclick = () => action('restore'); $('measure').onclick = () => action('measure');
 $('apply').onclick = () => {
@@ -121,19 +125,38 @@ $('fit').onclick = () => {zoom=1;pan={x:0,y:0};draw();};
 $('zoomIn').onclick = () => {zoom=Math.min(8,zoom*1.25);draw();}; $('zoomOut').onclick = () => {zoom=Math.max(.1,zoom/1.25);draw();};
 const canvas = $('photoCanvas');
 canvas.oncontextmenu = event => event.preventDefault();
-canvas.onpointerdown = event => {if(!photo)return;canvas.setPointerCapture(event.pointerId);drag={x:event.offsetX,y:event.offsetY,startX:event.offsetX,startY:event.offsetY,pan:event.button!==0};};
+function pointAt(x,y) {
+  if(!photo)return null;
+  return Object.entries(imagePoints).reverse().find(([,pixel]) => {const p=C.toScreen(...pixel,view());return Math.hypot(p[0]-x,p[1]-y)<=14;})?.[0] || null;
+}
+canvas.onpointerdown = event => {
+  if(!photo||busy)return;canvas.setPointerCapture(event.pointerId);
+  drag={x:event.offsetX,y:event.offsetY,startX:event.offsetX,startY:event.offsetY,pan:event.button!==0};
+  const id=connected&&event.button===0&&pointAt(event.offsetX,event.offsetY);
+  if(id){selected=id;Object.assign(drag,{id,original:imagePoints[id].slice(),scale:view().scale,session:state.session,capture:state.capture_id});busy=true;render();canvas.style.cursor='grabbing';}
+};
 canvas.onpointermove = event => {
   if(!photo)return;
   if(drag?.pan){pan.x+=event.offsetX-drag.x;pan.y+=event.offsetY-drag.y;drag.x=event.offsetX;drag.y=event.offsetY;draw();}
+  else if(drag?.id){
+    imagePoints[drag.id]=[Math.max(0,Math.min(photo.width-1,drag.original[0]+(event.offsetX-drag.startX)/drag.scale)),Math.max(0,Math.min(photo.height-1,drag.original[1]+(event.offsetY-drag.startY)/drag.scale))];draw();
+  }else canvas.style.cursor=pointAt(event.offsetX,event.offsetY)?'grab':'crosshair';
   const p=C.toImage(event.offsetX,event.offsetY,view(),photo.width,photo.height);$('cursor').textContent=p?p.map(v=>v.toFixed(1)).join(' , ')+' px':'—';
 };
 canvas.onpointerup = async event => {
-  const start=drag;drag=null;if(!start||start.pan||Math.hypot(event.offsetX-start.startX,event.offsetY-start.startY)>4)return;
-  if(!selected||!connected||!state?.captured||busy)return;
+  const start=drag;drag=null;canvas.style.cursor='crosshair';
+  if(start?.id){
+    const pixel=imagePoints[start.id];
+    try{const r=await api.set_point(start.session,start.capture,start.id,...pixel);if(!r.ok)throw new Error(r.error);if(state.session===start.session&&state.capture_id===start.capture)imagePoints=r.image_points;}
+    catch(error){if(state.session===start.session&&state.capture_id===start.capture)imagePoints[start.id]=start.original;toast(t(error.message));}
+    finally{busy=false;render();}return;
+  }
+  if(!start||start.pan||Math.hypot(event.offsetX-start.startX,event.offsetY-start.startY)>4)return;
+  if(!selected||!connected||busy)return;
   const p=C.toImage(event.offsetX,event.offsetY,view(),photo.width,photo.height);if(!p)return;
   busy=true;render();try{const r=await api.set_point(state.session,state.capture_id,selected,...p);if(!r.ok)throw new Error(r.error);imagePoints=r.image_points;selected=(state.points.find(p=>!imagePoints[p.id])||{id:selected}).id;}catch(error){toast(t(error.message));}finally{busy=false;render();}
 };
-canvas.onpointercancel=()=>{drag=null;};
+canvas.onpointercancel=()=>{if(drag?.id){if(state.session===drag.session&&state.capture_id===drag.capture)imagePoints[drag.id]=drag.original;busy=false;}drag=null;render();};
 canvas.onwheel=event=>{event.preventDefault();if(!photo)return;const before=view(),px=(event.offsetX-before.x)/before.scale,py=(event.offsetY-before.y)/before.scale;zoom=Math.max(.1,Math.min(8,zoom*Math.exp(-event.deltaY*.001)));const after=view();pan.x+=event.offsetX-(after.x+px*after.scale);pan.y+=event.offsetY-(after.y+py*after.scale);draw();};
 new ResizeObserver(draw).observe($('stage'));
 window.addEventListener('resize', draw);

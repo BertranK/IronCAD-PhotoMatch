@@ -213,3 +213,14 @@ AVIF는 여러 블록을 배열한 이미지이므로 이후 대응점 시험은
 
 화면·JSON·설치 백업과 사용자 샘플은 Git에 올리지 않는다. `evidence/`는 로컬 증거 폴더다.
 프로젝트는 IronCAD 설치 폴더의 ICAPI/PhotoMatchProto 배치를 전제로 한다.
+
+
+## Photo point editing and corrected sample follow-up (2026-09-14)
+
+- Photo markers remain editable after camera restoration. Drag a marker directly, or select its row and click a replacement photo location. Original image pixels are stored independently of display scaling.
+- Open results reloads the original photo and saved correspondences. It currently requires the same live host session, capture ID and exact model point records; it does not rebind model vertices after an IronCAD restart. Changed image contents and stale model records are rejected.
+- The language selector now shows Korean and English only. Windows language remains the default until an explicit language is chosen.
+- Live GUI reopening loaded all six pale upper-right blue-block points. The user edited the points successfully, and the GUI saved them as `evidence/sky-blue-user-edited.json`.
+- Repeating the exploratory fixed-focal camera fit on those edits gives a maximum residual of 4.546958 original image pixels. This is a calculation result, not an IronCAD screen measurement or precision pass. Focal length remains assumed at 1000 pixels; no lens calibration is claimed.
+- Camera Apply now prepares to resume a restored capture without clearing correspondence IDs, after checking document identity, viewport identity and model fingerprint. It saves the current view as the new restoration baseline. This native change builds successfully but is NOT installed or runtime-verified yet; the running IronCAD still has the preceding DLL loaded.
+- Validation: 9 Python API tests, 6 browser/coordinate/localization tests, x64 v143 build and native projection tests passed. Browser display checks cover scale factors 100%, 125%, 150%, 175%, and 200%. Native resume and post-restart point rebinding remain separate outstanding work.
