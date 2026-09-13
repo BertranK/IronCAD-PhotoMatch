@@ -186,10 +186,16 @@ void HostSession::Draw(IZRender* render) {
     double sx=double(physical.Width())/rw,sy=double(physical.Height())/rh;
     if(std::abs(sx-sy)>0.02)throw std::runtime_error("Viewport/render extent mismatch; use one unsplit view");
     dpi_=windowDpi(hwnd);Camera c=state.values;Vec3 f=unit(c.direction),r=unit(cross(f,c.up)),u=unit(cross(r,f));
+    std::ostringstream diagnostics;diagnostics.imbue(std::locale::classic());diagnostics<<std::setprecision(17);
     for(int i=0;i<8;++i){double depth=10+5*(i%3),x=(i&1)?2:-2,y=(i&2)?1.5:-1.5;
         Vec3 world{c.position.x+f.x*depth+r.x*x+u.x*y,c.position.y+f.y*depth+r.y*x+u.y*y,c.position.z+f.z*depth+r.z*x+u.z*y};
         LONG px=0,py=0,pz=0;checked(render->XformWorldToView2(world.x,world.y,world.z,&px,&py,&pz));
         observations_.push_back({c,world,{px*sx,py*sy},double(physical.Width()),double(physical.Height())});
+        // Model-space doubles are diagnostic only: the render matrix is not assumed to be identity.
+        double mx=0,my=0,mz=0;HRESULT modelHr=render->XformModelToView3(world.x,world.y,world.z,&mx,&my,&mz);
+        if(i)diagnostics<<',';diagnostics<<"{\"world_integer_px\":["<<px<<','<<py<<"],\"model_double_hresult\":"<<modelHr;
+        if(SUCCEEDED(modelHr)&&std::isfinite(mx)&&std::isfinite(my)&&std::isfinite(mz))diagnostics<<",\"model_double_px\":["<<mx<<','<<my<<','<<mz<<']';
+        diagnostics<<'}';
     }
     std::ostringstream record;record.imbue(std::locale::classic());record<<std::setprecision(17)<<"{\"dpi\":"<<dpi_<<",\"render_size\":["<<rw<<','<<rh
         <<"],\"physical_size\":["<<physical.Width()<<','<<physical.Height()<<"],\"picked_point_projections\":[";
@@ -197,7 +203,7 @@ void HostSession::Draw(IZRender* render) {
         checked(render->XformWorldToView2(p.apiPoint.x,p.apiPoint.y,p.apiPoint.z,&ax,&ay,&az));
         checked(render->XformWorldToView2(p.transformedPoint.x,p.transformedPoint.y,p.transformedPoint.z,&gx,&gy,&gz));
         if(i)record<<',';record<<"{\"id\":"<<quote("P"+std::to_string(i+1))<<",\"api_as_world_px\":["<<ax*sx<<','<<ay*sy<<"],\"transformed_as_world_px\":["<<gx*sx<<','<<gy*sy<<"]}";
-    }record<<"]}";sampleRecords_.push_back(record.str());auto result=fit(observations_);
+    }record<<"],\"projection_diagnostics\":["<<diagnostics.str()<<"]}";sampleRecords_.push_back(record.str());auto result=fit(observations_);
     CString message;message.Format(L"%zu projections; best %s, max %.4f physical px; %s",observations_.size(),
         CString(CA2W(name(result[0].convention).c_str())).GetString(),result[0].maxError,
         resolved(result)?L"FOV identified":L"UNRESOLVED: change aspect ratio / inspect axes");Log(message);
@@ -213,8 +219,8 @@ void HostSession::Restore() {
             for(LONG i=0;i<count;++i){IZCameraPtr camera;if(SUCCEEDED(cameras_->get_Camera(i,&camera))&&sameObject(camera,test_)){checked(cameras_->Remove(i));break;}}
             test_=nullptr;
         }
-        auto now=ReadCamera(original_);restoredCameraRecord_=jsonCameraState(now);restored_=jsonCamera(now.values)==jsonCamera(saved_.values)&&now.perspective==saved_.perspective&&now.nearClip==saved_.nearClip&&now.farClip==saved_.farClip&&now.scale==saved_.scale
-            &&jsonVec(vector3(now.interest))==jsonVec(vector3(saved_.interest));
+        auto now=ReadCamera(original_);restoredCameraRecord_=jsonCameraState(now);restored_=sameCameraValue(now.values,saved_.values)&&now.perspective==saved_.perspective&&sameCameraValue(now.nearClip,saved_.nearClip)&&sameCameraValue(now.farClip,saved_.farClip)&&sameCameraValue(now.scale,saved_.scale)
+            &&sameCameraValue(vector3(now.interest),vector3(saved_.interest));
         modelUnchanged_=ModelFingerprint()==modelBefore_;checked(scene_->Redraw());
         Log(restored_&&modelUnchanged_?L"Camera restored; model transforms / part bounds unchanged.":L"RESTORE CHECK FAILED; save diagnostics.");
         backgroundPersistence_.Release();backgroundBackup_.Release();captured_=false;
@@ -270,6 +276,7 @@ std::string HostSession::Report() {
     CComBSTR version;checked(app_->get_ApiVersion(&version));std::ostringstream o;o.imbue(std::locale::classic());o<<std::setprecision(17);
     o<<"{\n\"schema_version\":1,\"sdk_version\":"<<quote(utf8(version))<<",\"overall_status\":\"runtime_matrix_not_completed\","
       <<"\"restored\":"<<(restored_?"true":"false")<<",\"model_transforms_bounds_unchanged\":"<<(modelUnchanged_?"true":"false")
+      <<",\"camera_restore_comparison\":\"abs(a-b) <= 16 * DBL_EPSILON * max(1, abs(a), abs(b))\""
       <<",\"background\":"<<quote(utf8(backgroundStatus_))<<",\"image\":"<<quote(utf8(imagePath_))<<",\"image_focal_px\":"<<recordedImageFocal_<<",\"original_camera\":"<<savedCameraRecord_
       <<",\"restored_camera\":"<<restoredCameraRecord_<<",\"points\":[";
     for(size_t i=0;i<points_.size();++i){const auto& p=points_[i];CComVariant id=p.objectId;checked(id.ChangeType(VT_BSTR));if(i)o<<',';

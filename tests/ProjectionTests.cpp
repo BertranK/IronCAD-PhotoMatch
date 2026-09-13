@@ -4,6 +4,10 @@
 using namespace photomatch;
 void check(bool ok,const char* message) { if(!ok) {std::cerr<<message<<'\n';std::exit(1);} }
 int main() {
+    check(sameCameraValue(Vec3{0.6743378971633767,0.6659468811939842,-0.3190347189214382},Vec3{0.6743378971633766,0.665946881193984,-0.31903471892143814}),"Accept observed COM camera normalization roundoff");
+    check(!sameCameraValue(0.3711721030859038,0.3711721031859038),"Reject changed camera field");
+    check(!sameCameraValue(1.6329955485418048,1.6329955585418048),"Reject changed camera position");
+    check(!sameCameraValue(std::numeric_limits<double>::quiet_NaN(),0.0),"Reject invalid camera value");
     Camera c{{0,0,0},{0,0,1},{0,-1,0},60};
     Convention v{Axis::Vertical,true,false};
     Pixel p=project({0,0,10},c,v,1200,800);

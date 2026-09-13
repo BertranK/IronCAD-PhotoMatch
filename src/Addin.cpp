@@ -15,8 +15,14 @@ static void loadLog(const CString& message) noexcept {
 }
 class ShowCommand : public CZCommandEventsSink {
 public: HostSession* dialog=nullptr;
+    HRESULT STDMETHODCALLTYPE OnUpdate() override {
+        AFX_MANAGE_STATE(AfxGetStaticModuleState());
+        CComQIPtr<IZCommandHandler> handler(GetSource());
+        return handler?handler->put_Enabled(dialog?VARIANT_TRUE:VARIANT_FALSE):S_OK;
+    }
     HRESULT STDMETHODCALLTYPE OnClick() override {
         AFX_MANAGE_STATE(AfxGetStaticModuleState());
+        loadLog(L"PhotoMatch menu clicked");
         if(dialog)dialog->Guard([&]{dialog->LaunchGui();});return S_OK;
     }
 };
@@ -42,6 +48,7 @@ public:
             checked(site_->CreateCommandHandler(CComBSTR(L"PhotoMatchProto.Open"),CComBSTR(L"PhotoMatch \uC5F4\uAE30"),
                 CComBSTR(L"IronCAD PhotoMatch \uC5F4\uAE30"),CComBSTR(L"IronCAD PhotoMatch"),nullptr,nullptr,&command_));
             checked(CComObject<ShowCommand>::CreateInstance(&sink_));sink_->AddRef();sink_->dialog=dialog_.get();checked(sink_->Advise(command_));
+            checked(command_->put_Enabled(VARIANT_TRUE));
             IZEnvironmentMgrPtr environments;checked(app->get_EnvironmentMgr(&environments));IZEnvironmentPtr scene;
             checked(environments->get_Environment(Z_ENV_SCENE,&scene));IZControlBarPtr bar;checked(scene->AddControlBar(site_,CComBSTR(L"IronCAD PhotoMatch"),&bar));
             IZControlsPtr controls;checked(bar->get_Controls(&controls));IZControlDescriptorPtr descriptor;checked(command_->get_ControlDescriptor(&descriptor));

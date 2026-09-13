@@ -20,6 +20,16 @@ inline Vec3 unit(Vec3 a) {
     return {a.x/n,a.y/n,a.z/n};
 }
 struct Camera { Vec3 position, direction, up; double field; };
+// COM camera setters normalize vectors and can change their final floating-point bits.
+inline bool sameCameraValue(double a,double b) {
+    return std::isfinite(a)&&std::isfinite(b)&&std::abs(a-b)<=16*std::numeric_limits<double>::epsilon()*(std::max)(1.0,(std::max)(std::abs(a),std::abs(b)));
+}
+inline bool sameCameraValue(Vec3 a,Vec3 b) {
+    return sameCameraValue(a.x,b.x)&&sameCameraValue(a.y,b.y)&&sameCameraValue(a.z,b.z);
+}
+inline bool sameCameraValue(const Camera& a,const Camera& b) {
+    return sameCameraValue(a.position,b.position)&&sameCameraValue(a.direction,b.direction)&&sameCameraValue(a.up,b.up)&&sameCameraValue(a.field,b.field);
+}
 enum class Axis { Horizontal, Vertical, Minimum, Maximum };
 struct Convention { Axis axis; bool degrees; bool halfAngle; };
 inline std::string name(Convention c) {

@@ -87,6 +87,13 @@ GUI 종료 시 활성 캡처가 있으면 복원을 요청한다. 호스트가 �
 GUI 좌표/잘못된 이미지/문서 전환 테스트와 실제 Win32 Named Pipe 전송 테스트는 test-gui.ps1로 실행한다.
 전송 테스트의 C++ echo 프로세스는 IronCAD 런타임 검증을 대신하지 않는다.
 
+정밀 투영 진단을 포함한 호스트 JSON은 다음 명령으로 화면 끝점 규약 가설과 비교할 수 있다.
+이 분석은 호스트의 통과 판정을 바꾸지 않는다.
+
+```powershell
+& .\.venv\Scripts\python.exe .\scripts\analyze-projection.py .\evidence\camera-double-matrix.json --output .\evidence\projection-raster-hypothesis.json
+```
+
 실제 호스트 검증 범위는 `docs/PROTO0_STATUS.md`, 전체 기준은 `tests/ACCEPTANCE.md`를 따른다.
 `tests/fixture`의 합성 기준 자료는 호스트 화면 증거와 구분한다.
 사용자가 제공한 샘플은 별도 testsample 경로에서 읽으며 원본을 수정하거나 Git에 추가하지 않는다.
