@@ -96,19 +96,26 @@ test('delete removes only its pair and disables fitting below six matches', asyn
     await page.addInitScript(preview=>{
       window.testPoints=Object.fromEntries(Array.from({length:6},(_,i)=>['P'+(i+1),[100+i*150,300]]));
       window.deleted=[];window.fitCount=0;window.opacityCalls=[];
-      window.testState={session:'a',capture_id:1,captured:true,document:'brick.ics',point_delete_supported:true,photo_opacity:150/255,
+      window.testState={session:'a',capture_id:1,captured:true,document:'brick.ics',point_delete_supported:true,point_clear_supported:true,photo_opacity:150/255,
         points:Object.keys(testPoints).map(id=>({id,object_name:'Brick',api_coordinates:[1,2,3],transformed_coordinates:[1,2,3]}))};
       const result=()=>({ok:true,state:structuredClone(testState),image_points:structuredClone(testPoints),fit:null});
       window.pywebview={api:{preferences:async()=>({theme:'dark',language:'en'}),call:async(command,session,args)=>{if(command==='photo_opacity'){opacityCalls.push([session,args.opacity]);testState.photo_opacity=args.opacity;}return result();},
         open_project:async()=>({...result(),image:{preview,width:1600,height:1000,name:'reference.png'}}),
         delete_point:async(session,capture,id)=>{deleted.push([session,capture,id]);testState.points=testState.points.filter(p=>p.id!==id);delete testPoints[id];return result();},
-        clear_points:async(session,capture)=>{deleted.push([session,capture,'photo']);testPoints={};return result();},
+        clear_points:async(session,capture,all)=>{deleted.push([session,capture,all?'all':'photo']);testPoints={};if(all){testState.points=[];testState.capture_id++;}return result();},
         fit_points:async()=>{fitCount++;return result();}}};
     },'data:image/png;base64,'+readFileSync(resolve(__dirname,'fixture/reference.png')).toString('base64'));
     await page.goto(pathToFileURL(resolve(__dirname,'../gui/web/index.html')).href);
     await page.evaluate(()=>window.dispatchEvent(new Event('pywebviewready')));
     await page.locator('#openProject').click();await page.waitForFunction(()=>photo!==null);
     const originalPoints=await page.evaluate(()=>structuredClone(imagePoints));
+    assert.equal(await page.locator('#stepResult').textContent(),'03Calibration');
+    assert.equal(await page.locator('#clearPoints').textContent(),'Clear XY');
+    assert.equal(await page.locator('#clearAllPoints').textContent(),'Clear all');
+    const xy=await page.locator('#clearPoints').boundingBox(),all=await page.locator('#clearAllPoints').boundingBox();
+    assert.ok(all.x>=xy.x+xy.width);assert.equal(all.y,xy.y);
+    const reconnect=await page.locator('.reconnect-point').first().boundingBox(),remove=await page.locator('.delete-point').first().boundingBox();
+    assert.equal(reconnect.height,30);assert.equal(remove.height,reconnect.height);
     for(const value of [0,25,100]){
       await page.locator('#photoOpacity').evaluate((el,value)=>{el.value=value;el.dispatchEvent(new Event('input'));},value);
       await page.waitForFunction(value=>!busy&&state.photo_opacity===value/100,value);
@@ -127,6 +134,7 @@ test('delete removes only its pair and disables fitting below six matches', asyn
     await page.evaluate(()=>{state.adjusting_camera=true;render();});
     assert.equal(await page.locator('.delete-point:not(:disabled)').count(),0);
     assert.equal(await page.locator('#clearPoints').isDisabled(),true);
+    assert.equal(await page.locator('#clearAllPoints').isDisabled(),true);
     await page.evaluate(()=>{state.adjusting_camera=false;imagePoints={};render();});
     assert.equal(await page.locator('#clearPoints').isDisabled(),true);
     await page.evaluate(()=>{imagePoints=structuredClone(testPoints);selected='P6';render();});
@@ -140,6 +148,13 @@ test('delete removes only its pair and disables fitting below six matches', asyn
     assert.equal(await page.evaluate(()=>selected),'P1');
     assert.deepEqual(await page.evaluate(()=>state.points.map(p=>p.id)),['P1','P2','P4','P5','P6']);
     assert.deepEqual(await page.evaluate(()=>imagePoints),{});
+    assert.equal(await page.locator('#clearAllPoints').isEnabled(),true);
+    await page.locator('#clearAllPoints').click();await page.waitForFunction(()=>!busy);
+    assert.equal(await page.locator('.point-row').count(),0);
+    assert.equal(await page.locator('#clearAllPoints').isDisabled(),true);
+    assert.equal(await page.evaluate(()=>photo.name),'reference.png');
+    assert.equal(await page.evaluate(()=>state.capture_id),2);
+    assert.deepEqual(await page.evaluate(()=>deleted.at(-1)),['a',1,'all']);
     assert.deepEqual(errors,[]);
   } finally {await browser.close();}
 });

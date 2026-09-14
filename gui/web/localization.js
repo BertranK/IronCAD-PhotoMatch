@@ -45,6 +45,7 @@
     'PhotoMatch 결과 파일을 선택하세요.':'Choose a PhotoMatch result file.', '저장한 사진과 현재 파일이 다릅니다.':'The photo differs from the saved file.',
     '＋ 모델 점 선택':'＋ Pick model points', '점 선택 마치기':'Finish picking', '선택한 점이 여기에 표시됩니다':'Your points appear here',
     'DOCUMENT':'Document', 'ALIGNMENT':'Alignment', '축소':'Zoom out', '확대':'Zoom in', '맞춤':'Fit',
+    '보정':'Calibration', 'XY 지우기':'Clear XY', '전체 지우기':'Clear all',
     '사진에서 시작하세요':'Start with a photo', '사진 열기':'Open photo', '프로젝트 열기':'Open project', '스크롤 확대 · 우클릭 이동':'Scroll to zoom · Right-drag to pan',
     '점 끌어서 수정 · 스크롤 확대 · 우클릭 이동':'Drag points to edit · Scroll to zoom · Right-drag to pan',
     '카메라 정합':'Camera alignment', '검증 대기':'Awaiting validation', '투영 검증 통과':'Projection verified',

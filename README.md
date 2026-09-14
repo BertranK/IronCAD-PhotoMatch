@@ -10,7 +10,7 @@ Prototype: alignment accuracy is still being validated. Lens correction is not i
 - Open PNG, JPG, BMP, AVIF, WebP, TIFF, GIF, ICO, JPEG 2000, PNM, TGA, PCX, DDS, and QOI images.
 - Match points and calculate the camera.
 - See matching point numbers on the model; use each row's × button to delete a pair.
-- Clear photo coordinates to remap from the first card; model points and their numbers stay saved.
+- **Clear XY** removes photo coordinates; **Clear all** removes all point pairs and restarts at P1.
 - Preview and adjust the camera in IronCAD; control photo opacity with a slider.
 - Save and load results as JSON.
 - Korean/English and light/dark themes.
@@ -55,6 +55,8 @@ Install [Inno Setup 6](https://jrsoftware.org/isdl.php), then run `scripts/packa
 
 Points on one plane are supported with **Estimate optical center** off.
 For ambiguous views, add points at different depths.
+Moved scenes can reconnect after their saved vertex references are verified.
+Opening a scene allows up to five minutes for IronCAD to respond.
 
 ## Tests
 

@@ -61,6 +61,7 @@ function render() {
   const captured = connected && !review && state?.captured, points = connected ? (review || state)?.points || [] : [];
   const pending = points.some(p=>p.binding_status==='needs_reconnection');
   $('clearPoints').disabled = busy || !connected || !Object.keys(imagePoints).length || !!state?.adjusting_camera;
+  $('clearAllPoints').disabled = busy || !connected || !points.length || !!state?.adjusting_camera || (!review && !state?.point_clear_supported);
   $('pick').disabled = !!review || busy || !connected || !state?.document || (pending && !state?.picking);
   $('pick').textContent = state?.picking && connected ? t('점 선택 마치기') : t('＋ 모델 점 선택');
   $('capture').disabled = !!review || busy || !connected || !state?.document;
@@ -211,11 +212,13 @@ $('closeImage').onclick = async () => {
   catch(error){toast(t(error.message));}finally{busy=false;render();}
 };
 $('reconnectModel').onclick=()=>fitAction('reconnect_model');
-$('clearPoints').onclick=async()=>{
+async function clearPoints(allPoints=false){
   if(!api||busy)return;busy=true;autoPreviewPending=false;render();
-  try{const result=await api.clear_points(state.session,state.capture_id);if(result.ok)selected=null;accept(result);}
+  try{const result=await api.clear_points(state.session,state.capture_id,allPoints);if(result.ok)selected=null;accept(result);}
   catch(error){toast(t(error.message));}finally{busy=false;render();}
-};
+}
+$('clearPoints').onclick=()=>clearPoints();
+$('clearAllPoints').onclick=()=>clearPoints(true);
 $('replaceModel').onclick=async()=>{
   if(!api||busy)return;busy=true;render();
   try{accept(await api.replace_model(state.session,state.capture_id));toast(t('행을 선택하고 모델 점을 다시 연결하세요. 사진 위치는 유지됩니다.'));}

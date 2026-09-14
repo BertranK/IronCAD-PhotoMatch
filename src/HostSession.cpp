@@ -235,7 +235,7 @@ void HostSession::StopPicking() {
 void HostSession::Reconnect(const nlohmann::json& saved) {
     IZDocPtr active;checked(app_->get_ActiveDoc(&active));IZSceneDocPtr scene=active;
     if(!scene)throw std::runtime_error("Open the saved 3D document first");
-    if(Snapshot().at("document")!=saved.at("document"))throw std::runtime_error("Open the saved document before reconnecting points");
+    // Save As can change the document path. Verify the actual references below.
     std::vector<IZElementPtr> parts;
     std::function<void(IZElement*)> visit=[&](IZElement* element){
         eZElementType type;checked(element->get_Type(&type));
@@ -610,7 +610,7 @@ nlohmann::json HostSession::Snapshot() {
     out["picking"]=bool(interactor_);out["test_camera"]=bool(test_);out["measuring"]=measuring_;
     out["logs"]=logs_;out["host_pid"]=GetCurrentProcessId();out["document"]=nullptr;out["camera"]=nullptr;
     out["saved_point_reconnect"]=true;
-    out["point_delete_supported"]=true;out["point_markers_supported"]=true;
+    out["point_delete_supported"]=true;out["point_clear_supported"]=true;out["point_markers_supported"]=true;
     out["replace_model_supported"]=true;
     out["scene_project_supported"]=true;
     out["photo_workflow_version"]=1;out["model_revision"]=modelRevision_;
@@ -674,6 +674,15 @@ std::string HostSession::Request(const std::string& text) {
             auto id=args.at("id").get<std::string>();size_t index=points_.size();
             for(size_t i=0;i<points_.size();++i)if(id=="P"+std::to_string(points_[i].number))index=i;
             if(index==points_.size())throw std::runtime_error("Unknown correspondence");Pick();replacePoint_=index;
+        }
+        else if(command=="clear_points"){
+            if(args.at("capture_id").get<unsigned long>()!=captureId_)throw std::runtime_error("Capture changed; refresh before clearing points");
+            if(adjusting_)throw std::runtime_error("Save or cancel camera adjustment first");
+            if(test_||overlay_.GetSafeHwnd())ClosePhoto();
+            StopPicking();points_.clear();nextPointNumber_=1;++captureId_;++modelRevision_;
+            sampleRecords_.clear();measuring_=false;manualCamera_=false;manualRecord_="null";
+            markersVisible_=true;if(scene_)checked(scene_->Redraw());
+            Log(L"All point pairs cleared; numbering restarts at P1.");
         }
         else if(command=="delete_point"){
             if(args.at("capture_id").get<unsigned long>()!=captureId_)throw std::runtime_error("Capture changed; refresh before deleting a point");

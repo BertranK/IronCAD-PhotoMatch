@@ -8,6 +8,98 @@ class FakeBridge:
     def __init__(self,state): self.state=state
     def call(self,*args): return self.state
 class ApiTests(unittest.TestCase):
+    def test_reconnect_saved_scene_at_new_path_verifies_references_before_accepting(self):
+        saved={'session':'old','capture_id':1,'document':r'C:\Temp\brick.ics','points':[{'id':'P1','vertex_id':10}]}
+        current={'session':'new','capture_id':0,'document':r'C:\Models\brick.ics','points':[],'saved_point_reconnect':True}
+        rebound={**current,'capture_id':1,'points':saved['points']}
+        for response in [rebound,ValueError('Saved vertex geometry changed')]:
+            api=Api();api._accept(current);api._review=saved;api._points={'P1':[12,34]}
+            with patch.object(api._bridge,'call',side_effect=[current,response]) as call:
+                result=api.reconnect_model()
+            self.assertEqual(('reconnect','new',{'host':{'document':saved['document'],'points':saved['points']}}),call.call_args.args)
+            self.assertEqual({'P1':[12,34]},api._points)
+            if isinstance(response,Exception):
+                self.assertFalse(result['ok']);self.assertEqual(saved,api._review)
+            else:
+                self.assertTrue(result['ok']);self.assertIsNone(result['review'])
+
+    def test_open_relocated_scene_reconnects_after_native_verification(self):
+        image=load_image(Path(__file__).parent/'fixture/reference.png')
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'match.json';scene=Path(directory)/'brick.ics';scene.write_bytes(b'fixture')
+            saved={'session':'old','capture_id':1,'document':r'C:\Temp\brick.ics','points':[{'id':'P1','vertex_id':10}]}
+            data=make_project(saved,image,{'P1':[12,34]});data['scene_path']=str(scene)
+            path.write_text(json.dumps(data),encoding='utf-8')
+            current={'session':'new','capture_id':0,'document':str(scene),'points':[],'scene_project_supported':True,'saved_point_reconnect':True}
+            rebound={**current,'capture_id':1,'points':saved['points']}
+            api=Api()
+            with patch.object(api._bridge,'call',side_effect=[current,rebound]) as call:
+                result=api._load_project(path)
+            self.assertEqual('reconnect',call.call_args.args[0]);self.assertIsNone(result['review'])
+            self.assertEqual({'P1':[12,34]},result['image_points'])
+
+    def test_scene_open_waits_five_minutes_and_restores_normal_timeout(self):
+        for command,timeout in [('open_scene',300000),('save_scene',60000)]:
+            for fail in [False,True]:
+                api=Api();normal=api._bridge.timeout_ms
+                def bridge(*args):
+                    self.assertEqual(timeout,api._bridge.timeout_ms)
+                    if fail: raise RuntimeError('scene failed')
+                    return {'ok':True}
+                with patch.object(api._bridge,'call',side_effect=bridge):
+                    if fail:
+                        with self.assertRaisesRegex(RuntimeError,'scene failed'):api._scene_call(command,'a',{})
+                    else:self.assertEqual({'ok':True},api._scene_call(command,'a',{}))
+                self.assertEqual(normal,api._bridge.timeout_ms)
+
+    def test_missing_temp_scene_uses_adjacent_or_open_saved_scene_with_verification(self):
+        image=load_image(Path(__file__).parent/'fixture/reference.png')
+        for adjacent in [True,False]:
+            with tempfile.TemporaryDirectory() as directory:
+                folder=Path(directory);path=folder/'match.json';scene=folder/('brick.ics' if adjacent else 'renamed.ics');scene.write_bytes(b'fixture')
+                missing=folder/'deleted-temp'/'brick.ics'
+                saved={'session':'old','capture_id':1,'document':str(missing),'points':[{'id':'P1','vertex_id':10}]}
+                data=make_project(saved,image,{'P1':[12,34]});data['scene_path']=str(missing)
+                path.write_text(json.dumps(data),encoding='utf-8')
+                current={'session':'new','capture_id':0,'document':str(scene),'points':[],'scene_project_supported':True,'saved_point_reconnect':True}
+                rebound={**current,'capture_id':1,'points':saved['points']}
+                for response in [rebound,ValueError('Saved vertex geometry changed')]:
+                    api=Api();api._image={'path':'keep.png'};api._points={'P9':[20,30]}
+                    with patch.object(api._bridge,'call',side_effect=[current,response]) as call:
+                        if isinstance(response,Exception):
+                            with self.assertRaisesRegex(ValueError,'geometry changed'):api._load_project(path)
+                            self.assertEqual({'P9':[20,30]},api._points);self.assertEqual('keep.png',api._image['path'])
+                        else:
+                            result=api._load_project(path);self.assertIsNone(result['review']);self.assertEqual({'P1':[12,34]},result['image_points'])
+                    self.assertEqual('reconnect',call.call_args.args[0])
+
+    def test_clear_all_removes_pairs_in_one_host_call_and_keeps_photo(self):
+        state={'session':'a','capture_id':1,'point_clear_supported':True,'points':[{'id':'P1'},{'id':'P8'}]}
+        cleared={**state,'capture_id':2,'points':[]}
+        api=Api();api._accept(state);api._points={'P1':[10,20]};api._image={'path':'photo.png'}
+        with patch.object(api._bridge,'call',side_effect=[state,cleared]) as call:
+            result=api.clear_points('a',1,True)
+        self.assertTrue(result['ok']);self.assertEqual(('clear_points','a',{'capture_id':1}),call.call_args.args)
+        self.assertEqual([],result['state']['points']);self.assertEqual({},result['image_points']);self.assertIsNone(result['review'])
+        self.assertEqual(('a',2),api._key);self.assertEqual('photo.png',api._image['path'])
+
+    def test_clear_all_rejects_stale_adjusting_old_host_and_native_failure(self):
+        state={'session':'a','capture_id':1,'point_clear_supported':True,'points':[{'id':'P8'}]}
+        for current,session,capture,error in [(state,'a',0,None),(state,'old',1,None),
+                ({**state,'adjusting_camera':True},'a',1,None),({**state,'point_clear_supported':False},'a',1,None),
+                (state,'a',1,RuntimeError('restore failed'))]:
+            api=Api();api._accept(current);api._points={'P8':[10,20]}
+            with patch.object(api._bridge,'call',side_effect=[current,error] if error else [current]) as call:
+                self.assertFalse(api.clear_points(session,capture,True)['ok'])
+            self.assertEqual(2 if error else 1,call.call_count);self.assertEqual({'P8':[10,20]},api._points)
+
+    def test_clear_all_review_does_not_delete_unrelated_active_model_points(self):
+        state={'session':'new','capture_id':2,'points':[{'id':'P9'}]}
+        api=Api();api._accept(state);api._review={'document':'old.ics','points':[{'id':'P1'}]};api._points={'P1':[10,20]}
+        with patch.object(api._bridge,'call',return_value=state) as call:result=api.clear_points('new',2,True)
+        self.assertTrue(result['ok']);self.assertEqual(1,call.call_count);self.assertEqual([],result['review']['points'])
+        self.assertEqual([{'id':'P9'}],result['state']['points']);self.assertEqual({},result['image_points'])
+
     def test_delete_all_pairs_then_pick_and_match_six_again(self):
         import copy
         api=Api();image=load_image(Path(__file__).parent/'fixture/reference.png');api._image=image

@@ -23,9 +23,11 @@ views, add points at different depths.
 Photo opacity controls the IronCAD overlay from 0% to 100%.
 Automatic recalculate is enabled by default. Preview in IronCAD, adjust
 the camera if needed, and save results as JSON. Restore view returns to
-the original camera. Clear removes photo coordinates only; model points
-stay. Each row's X deletes that model/photo pair. Deleting every model
-point restarts numbering at P1.
+the original camera. Clear XY removes photo coordinates only; model points
+stay. Clear all removes all point pairs and restarts numbering at P1.
+Each row's X deletes that model/photo pair.
+Moved scenes reconnect after saved vertex references are verified.
+Opening a scene allows up to five minutes for IronCAD to respond.
 
 Images: PNG, JPEG, BMP, AVIF, WebP, TIFF, GIF, ICO, JPEG 2000, PNM, TGA,
 PCX, DDS, QOI. Only the first frame/page is used. HEIC/RAW/vector are not

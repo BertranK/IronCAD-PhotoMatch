@@ -133,7 +133,7 @@ class Api:
         except Exception as error:
             return {'ok': False, 'error': str(error)}
 
-    def clear_points(self, session, capture_id):
+    def clear_points(self, session, capture_id, all_points=False):
         try:
             with self._lock:
                 state = self._bridge.call('status'); self._accept(state)
@@ -141,7 +141,14 @@ class Api:
                     raise ValueError('문서가 바뀌었습니다. 모델 점을 다시 선택하세요.')
                 if state.get('adjusting_camera'):
                     raise ValueError('카메라 조정을 먼저 저장하거나 취소하세요.')
-                if not self._review and self._preview_session == state['session']:
+                if all_points:
+                    if self._review:
+                        self._review['points'] = []
+                    else:
+                        if not state.get('point_clear_supported'):
+                            raise ValueError('새 IronCAD 연결 모듈이 필요합니다.')
+                        state = self._bridge.call('clear_points', session, {'capture_id': capture_id})
+                elif not self._review and self._preview_session == state['session']:
                     state = self._bridge.call('restore', session)
                     if state.get('captured') and not state.get('restored'):
                         raise ValueError('원래 보기 복원을 확인하지 못했습니다.')
@@ -200,7 +207,7 @@ class Api:
             with self._lock:
                 state = self._bridge.call('status'); self._accept(state)
                 if not self._review: return self._accept(state)
-                if self._review.get('document') != state.get('document'): raise ValueError('저장된 모델 문서를 먼저 여세요.')
+                if not state.get('document'): raise ValueError('저장된 모델 문서를 먼저 여세요.')
                 state = self._reconnect_points(state['session'], self._review)
                 self._review = None
                 self._key = (state['session'], state['capture_id'])
@@ -249,6 +256,13 @@ class Api:
             if scene_path:
                 scene_path = Path(scene_path)
                 if not scene_path.is_absolute(): scene_path = Path(path).parent / scene_path
+                if scene_path.suffix.lower() == '.ics' and not scene_path.is_file():
+                    adjacent = Path(path).parent / scene_path.name
+                    active = Path(state.get('document') or '')
+                    if adjacent.is_file():
+                        scene_path = adjacent
+                    elif state.get('saved_point_reconnect') and active.suffix.lower() == '.ics' and active.is_file():
+                        scene_path = active
                 if scene_path.suffix.lower() != '.ics' or not scene_path.is_file():
                     raise ValueError('Saved IronCAD scene is missing.')
                 if not state.get('scene_project_supported'):
@@ -263,7 +277,10 @@ class Api:
             points = {p["id"]: validate_pixel(*p["image_px"], image) for p in data["correspondences"]}
             if len(points) != len(data["correspondences"]) or not set(points) <= {p["id"] for p in saved["points"]}:
                 raise ValueError("모델의 대응점이 바뀌었습니다.")
-            if not same_session and state.get("saved_point_reconnect") and state.get("document") == saved.get("document"):
+            # The linked scene may have been saved out of a temporary folder.
+            # The host verifies every vertex and transform before rebinding.
+            linked_scene = scene_path and str(scene_path).casefold() == str(state.get('document')).casefold()
+            if not same_session and state.get("saved_point_reconnect") and (linked_scene or str(state.get("document")).casefold() == str(saved.get("document")).casefold()):
                 state = self._reconnect_points(state["session"], saved)
                 same_session = True
             self._accept(state)
@@ -411,7 +428,7 @@ class Api:
     def _scene_call(self, command, session, args):
         timeout = self._bridge.timeout_ms
         try:
-            self._bridge.timeout_ms = 60000
+            self._bridge.timeout_ms = 300000 if command == 'open_scene' else 60000
             return self._bridge.call(command, session, args)
         finally:
             self._bridge.timeout_ms = timeout
