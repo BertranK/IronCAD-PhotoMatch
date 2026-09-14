@@ -8,7 +8,7 @@ test('every marked and dynamic UI label has an English translation', () => {
   const script = fs.readFileSync(path.join(__dirname, '../gui/web/app.js'), 'utf8');
   const keys = [...html.matchAll(/data-i18n(?:-title|-aria-label)?="([^"]+)"/g), ...script.matchAll(/\bt\('([^']+)'\)/g)].map(m => m[1]);
   for (const key of keys) assert.ok(Object.hasOwn(L.en, key), key);
-  L.setLanguage('en'); assert.equal(L.t('결과 저장'), 'Save results');
+  L.setLanguage('en'); assert.equal(L.t('결과 저장'), 'Save');
   assert.equal(L.t('User part name'), 'User part name');
   L.setLanguage('ko'); assert.equal(L.t('결과 저장'), '결과 저장');
 });

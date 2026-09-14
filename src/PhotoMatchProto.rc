@@ -1,3 +1,6 @@
 #include "Resource.h"
 #include <afxres.h>
 IDR_ADDIN REGISTRY "PhotoMatchProto.rgs"
+IDI_PHOTOMATCH ICON "assets/photomatch.ico"
+IDB_PHOTOMATCH_SMALL BITMAP "assets/photomatch-16.bmp"
+IDB_PHOTOMATCH_LARGE BITMAP "assets/photomatch-32.bmp"

@@ -4,6 +4,23 @@
 using namespace photomatch;
 void check(bool ok,const char* message) { if(!ok) {std::cerr<<message<<'\n';std::exit(1);} }
 int main() {
+    for(auto dimensions:std::vector<Pixel>{{3341,1844},{545,1035}}){
+        const double iw=750,ih=750,focal=853.14,rw=dimensions.x,rh=dimensions.y;
+        Pixel principal{691.958,-3.716};Convention convention{Axis::Minimum,false,false};
+        auto box=sdkImageRect(iw,ih,rw,rh,rw,rh,principal);
+        check(std::abs(box.x+principal.x*box.w/iw-(rw-2)/2)<1e-9,"Off-center photo principal equals SDK optical axis");
+        check(std::abs(box.y+principal.y*box.h/ih-(rh-2)/2)<1e-9,"Off-image principal remains supported");
+        Camera camera{{0,0,0},{0,0,1},{0,-1,0},sdkImageField(focal,iw,ih,rw,rh,rw,rh,convention,principal)};
+        for(auto xy:std::vector<Pixel>{{490,44},{668,94},{732,62},{666,164},{491,104},{730,125}}){
+            Vec3 q{(xy.x-principal.x)/focal,(xy.y-principal.y)/focal,1};
+            auto actual=projectSdk(q,camera,convention,rw,rh,rw,rh,false);
+            check(std::hypot(actual.x-(box.x+xy.x*box.w/iw),actual.y-(box.y+xy.y*box.h/ih))<.2,"Shifted photo and native camera use matched intrinsics");
+        }
+    }
+    check(floatingProjectionAgrees({15.375,31.125},{15,30},{15.3751,31.1251},1.5,1.5),"Floating frame check uses physical pixel scale");
+    check(!floatingProjectionAgrees({15.375,31.125},{16.5,30},{15.375,31.125},1.5,1.5),"Reject inconsistent world integer projection");
+    check(!floatingProjectionAgrees({15.375,31.125},{15,30},{15.4,31.125},1.5,1.5),"Reject changed model frame even within the same integer cell");
+    check(!floatingProjectionAgrees({NAN,0},{0,0},{0,0},1,1),"Reject invalid floating projection");
     check(sameCameraValue(Vec3{0.6743378971633767,0.6659468811939842,-0.3190347189214382},Vec3{0.6743378971633766,0.665946881193984,-0.31903471892143814}),"Accept observed COM camera normalization roundoff");
     check(!sameCameraValue(0.3711721030859038,0.3711721031859038),"Reject changed camera field");
     check(!sameCameraValue(1.6329955485418048,1.6329955585418048),"Reject changed camera position");

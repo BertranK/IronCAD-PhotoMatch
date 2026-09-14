@@ -6,22 +6,29 @@ import math
 from pathlib import Path
 from PIL import Image
 
+SUPPORTED_IMAGE_FORMATS = {'PNG', 'JPEG', 'BMP', 'AVIF', 'WEBP', 'TIFF', 'GIF',
+                           'ICO', 'JPEG2000', 'PPM', 'TGA', 'PCX', 'DDS', 'QOI'}
+IMAGE_FILE_PATTERNS = ';'.join('*'+extension for extension, format_name in
+                             sorted(Image.registered_extensions().items())
+                             if format_name in SUPPORTED_IMAGE_FORMATS)
+
 
 def load_image(path):
     path = Path(path).resolve(strict=True)
     if path.stat().st_size > 100*1024*1024:
         raise ValueError("100 MB 이하의 사진을 선택하세요.")
     with Image.open(path) as image:
-        if image.format not in {"PNG", "JPEG", "BMP", "AVIF"}:
-            raise ValueError("PNG, JPG, BMP, AVIF 사진을 선택하세요.")
+        if image.format not in SUPPORTED_IMAGE_FORMATS:
+            raise ValueError("지원하는 이미지 형식의 파일을 선택하세요.")
         width, height = image.size
         if width*height > 40_000_000:
             raise ValueError("4천만 픽셀 이하의 사진을 선택하세요.")
         image.load()
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         overlay_path = path
-        if image.format == 'AVIF':
-            cache = Path(__file__).resolve().parent / '.runtime' / 'images'
+        if image.format not in {'PNG', 'JPEG', 'BMP'} or getattr(image, 'is_animated', False):
+            from paths import RUNTIME
+            cache = RUNTIME / 'images'
             cache.mkdir(parents=True, exist_ok=True)
             overlay_path = cache / (digest + '.png')
             if not overlay_path.exists(): image.convert('RGBA').save(overlay_path)

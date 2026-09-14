@@ -10,6 +10,17 @@ namespace photomatch {
 struct Vec3 { double x, y, z; };
 struct Pixel { double x, y; };
 struct Rect { double x, y, w, h; };
+// A floating model projection is usable as world output only after checking
+// the current render frame against analytical and integer-world projections.
+inline bool floatingProjectionAgrees(Pixel value,Pixel worldInteger,Pixel analytical,double sx,double sy) {
+    if(!(sx>0&&sy>0)||!std::isfinite(sx)||!std::isfinite(sy)
+        ||!std::isfinite(value.x)||!std::isfinite(value.y)
+        ||!std::isfinite(worldInteger.x)||!std::isfinite(worldInteger.y)
+        ||!std::isfinite(analytical.x)||!std::isfinite(analytical.y))return false;
+    return std::hypot(value.x-analytical.x,value.y-analytical.y)<=0.01
+        &&std::abs(std::trunc(value.x/sx)*sx-worldInteger.x)<1e-6
+        &&std::abs(std::trunc(value.y/sy)*sy-worldInteger.y)<1e-6;
+}
 inline Vec3 sub(Vec3 a, Vec3 b) { return {a.x-b.x,a.y-b.y,a.z-b.z}; }
 inline double dot(Vec3 a, Vec3 b) { return a.x*b.x+a.y*b.y+a.z*b.z; }
 inline Vec3 cross(Vec3 a, Vec3 b) { return {a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x}; }
@@ -62,19 +73,29 @@ inline Pixel projectSdk(Vec3 point,Camera camera,Convention convention,double rw
     if(integer){p.x=std::trunc(p.x);p.y=std::trunc(p.y);}
     return {p.x*pw/rw,p.y*ph/rh};
 }
-inline Rect sdkImageRect(double iw,double ih,double rw,double rh,double pw,double ph) {
+inline Rect sdkImageRect(double iw,double ih,double rw,double rh,double pw,double ph,Pixel principal) {
     if(iw<=0||ih<=0||rw<=2||rh<=2||pw<=0||ph<=0)throw std::runtime_error("Invalid image viewport");
-    double w=(rw-2)*pw/rw,h=(rh-2)*ph/rh,s=(std::min)(w/iw,h/ih);
-    return {(w-iw*s)/2,(h-ih*s)/2,iw*s,ih*s};
+    if(!std::isfinite(principal.x)||!std::isfinite(principal.y))throw std::runtime_error("Invalid image principal point");
+    double w=(rw-2)*pw/rw,h=(rh-2)*ph/rh;
+    double spanX=2*(std::max)(std::abs(principal.x),std::abs(iw-principal.x));
+    double spanY=2*(std::max)(std::abs(principal.y),std::abs(ih-principal.y));
+    double s=(std::min)(w/spanX,h/spanY);
+    return {w/2-principal.x*s,h/2-principal.y*s,iw*s,ih*s};
 }
-inline double sdkImageField(double focal,double iw,double ih,double rw,double rh,double pw,double ph,Convention c) {
-    Rect box=sdkImageRect(iw,ih,rw,rh,pw,ph);
+inline Rect sdkImageRect(double iw,double ih,double rw,double rh,double pw,double ph) {
+    return sdkImageRect(iw,ih,rw,rh,pw,ph,{iw/2,ih/2});
+}
+inline double sdkImageField(double focal,double iw,double ih,double rw,double rh,double pw,double ph,Convention c,Pixel principal) {
+    Rect box=sdkImageRect(iw,ih,rw,rh,pw,ph,principal);
     if(!std::isfinite(focal)||focal<=0)throw std::runtime_error("Invalid focal length");
     double kx=(rw-2)/(rw-1)*pw/rw,ky=(rh-2)/(rh-1)*ph/rh;
     // Uniform image scaling; minimize corner distance from SDK endpoint anisotropy.
     double f=focal*box.w/iw*(iw*iw*kx+ih*ih*ky)/(iw*iw*kx*kx+ih*ih*ky*ky);
     double rad=2*std::atan(extent(c,rw-1,rh-1)/(2*f));
     return rad/(c.halfAngle?2:1)/(c.degrees?3.14159265358979323846/180:1);
+}
+inline double sdkImageField(double focal,double iw,double ih,double rw,double rh,double pw,double ph,Convention c) {
+    return sdkImageField(focal,iw,ih,rw,rh,pw,ph,c,{iw/2,ih/2});
 }
 inline Rect contain(double iw,double ih,double vw,double vh) {
     if(!(iw>0&&ih>0&&vw>0&&vh>0)) throw std::runtime_error("Invalid image dimensions");

@@ -1,7 +1,7 @@
-param([switch]$Unregister)
+param([switch]$Unregister,[string]$IronRoot='')
 $ErrorActionPreference='Stop'
 $protoRoot=Split-Path -Parent $PSScriptRoot
-$ironRoot=Split-Path -Parent (Split-Path -Parent $protoRoot)
+if (!$IronRoot) { $IronRoot=Split-Path -Parent (Split-Path -Parent $protoRoot) }
 $path=Join-Path $ironRoot 'bin\IronCAD.AddIn.manifest'
 $backup=Join-Path $protoRoot 'evidence\IronCAD.AddIn.manifest.before-photomatch'
 $clsid='{A44D3379-FC03-4CBF-9B10-A8CC56B3A7E1}'

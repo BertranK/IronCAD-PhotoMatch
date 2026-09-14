@@ -30,6 +30,7 @@ public: HostSession* owner=nullptr;
 class PhotoOverlay : public CWnd {
 public:
     CImage image;
+    BYTE opacity=150;
     photomatch::Rect imageRect{};
     photomatch::Rect drawnRect{};
     void Open(const CString& path,HWND host);
@@ -41,6 +42,7 @@ public:
 private:
     CImage frame_;
     CPoint position_{};
+    BYTE drawnOpacity_=0;
 };
 struct CameraState {
     photomatch::Camera values;
@@ -49,12 +51,15 @@ struct CameraState {
     double nearClip=0,farClip=0,scale=1;
 };
 struct PickedPoint {
+    unsigned long number=0;
     long vertexId=0;
     CString name;
     CComVariant objectId;
     IZElementPtr element;
     photomatch::Vec3 apiPoint,transformedPoint;
     std::array<double,16> matrix;
+    IZProjectionPersistentRefObjPtr reference;
+    std::string bindingStatus="connected";
 };
 class HostSession : public CWnd {
 public:
@@ -103,7 +108,11 @@ private:
     DWORD thread_;
     HWND capturedWindow_=nullptr;
     std::string modelBefore_;
+    unsigned long modelRevision_=0;
+    size_t replacePoint_=size_t(-1);
     std::vector<PickedPoint> points_;
+    unsigned long nextPointNumber_=1;
+    bool markersVisible_=false;
     std::vector<photomatch::Observation> observations_;
     std::vector<std::string> sampleRecords_;
     std::vector<std::string> errors_;
@@ -116,20 +125,34 @@ private:
     double imageFocal_=0,recordedImageFocal_=0,lastW_=0,lastH_=0,lastRenderW_=0,lastRenderH_=0;
     std::string savedCameraRecord_="null",restoredCameraRecord_="null";
     unsigned int dpi_=0;
+    bool adjusting_=false,manualCamera_=false;
+    CameraState adjustmentStart_,manualState_;
+    photomatch::Rect adjustmentRect_{};
+    bool adjustmentWasManual_=false;
+    std::string manualRecord_="null";
+    photomatch::Pixel imagePrincipal_{};
+    void InitializeReference(PickedPoint&);
+    void RefreshPoints();
+    void RequireConnectedPoints();
+    void ClosePhoto();
+    void AdjustCamera(const std::string& action,const nlohmann::json& args);
     void CheckContext();
     void Capture();
     void Resume();
     photomatch::Convention OverlayConvention();
     void Reconnect(const nlohmann::json& saved);
     void Pick();
+    void DrawPoints(IZRender*);
     void StopPicking();
     void Apply(const photomatch::Camera& input);
     void Restore();
-    void Photo(const CString& path,double focal);
+    void Photo(const CString& path,double focal,const nlohmann::json& principal=nullptr);
     void Background(const CString& path);
     void UpdateOverlay();
     HWND GraphicsWindow();
     std::string ModelFingerprint();
     CameraState ReadCamera(IZCamera*);
+    IZCameraPtr LiveCamera();
+    CameraState ReadLiveCamera();
     void WriteCamera(IZCamera*,const CameraState&);
 };

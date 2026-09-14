@@ -15,3 +15,6 @@ gui/.runtime/
 
 # Keep sample files local.
 testsample/
+
+# Saved personal results belong in evidence, not beside regression tests.
+tests/*.json

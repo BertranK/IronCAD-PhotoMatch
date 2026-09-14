@@ -98,7 +98,7 @@ class Preferences:
     def __init__(self, runtime):
         user = hashlib.sha256(str(Path.home()).encode()).hexdigest()[:16]
         self.path = Path(runtime) / ("instance-" + user) / "preferences.json"
-        self.selection = "system"
+        self.selection = "en"
         try:
             selection = json.loads(self.path.read_text(encoding="utf-8"))["language"]
             if selection in {"system", "ko", "en"}:

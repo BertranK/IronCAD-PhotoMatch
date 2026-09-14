@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'">
@@ -9,16 +9,16 @@
   <div class="flex h-full flex-col">
     <header class="flex h-16 shrink-0 items-center justify-between border-b border-line px-6">
       <div class="flex items-center gap-3"><div class="flex size-8 items-center justify-center rounded-lg bg-mint text-ink"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 8V3h5m8 0h5v5m0 8v5h-5M8 21H3v-5"/><circle cx="12" cy="12" r="4"/><path d="M12 5v3m0 8v3M5 12h3m8 0h3"/></svg></div><span class="text-lg font-semibold tracking-tight">PhotoMatch</span><span class="ml-1 rounded border border-line px-1.5 py-0.5 text-[9px] tracking-wider text-slate-500">PROTO</span></div>
-      <div class="header-actions flex items-center gap-4"><label class="language-control"><span aria-hidden="true">◎</span><select id="language" aria-label="언어" data-i18n-aria-label="언어"><option value="ko">한국어</option><option value="en">English</option></select></label><div class="flex items-center gap-2"><span id="connectionDot" class="dot"></span><span id="connection" class="text-xs text-slate-400"><span data-i18n="연결 확인 중">연결 확인 중</span></span></div><button id="save" class="btn" disabled><span data-i18n="결과 저장">결과 저장</span><span class="text-slate-500">↗</span></button></div>
+      <div class="header-actions flex items-center gap-4"><div class="flex items-center gap-2"><span id="connectionDot" class="dot"></span><span id="connection" class="text-xs text-slate-400"><span data-i18n="연결 확인 중">연결 확인 중</span></span></div><label class="language-control"><span aria-hidden="true">◎</span><select id="language" aria-label="언어" data-i18n-aria-label="언어"><option value="en">English</option><option value="ko">한국어</option></select></label><button id="openProject" class="btn" disabled><span data-i18n="결과 열기">결과 열기</span></button><button id="save" class="btn" disabled><span data-i18n="결과 저장">결과 저장</span></button></div>
     </header>
     <nav class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-panel/50 px-6">
       <div class="flex items-center gap-7"><span id="stepImage" class="step active"><span class="coordinate">01</span><span data-i18n="사진">사진</span></span><span class="text-slate-700">/</span><span id="stepPoints" class="step"><span class="coordinate">02</span><span data-i18n="대응점">대응점</span></span><span class="text-slate-700">/</span><span id="stepResult" class="step"><span class="coordinate">03</span><span data-i18n="정합">정합</span></span></div>
-      <div class="flex items-center gap-1"><button id="openProject" class="mini" disabled><span data-i18n="결과 열기">결과 열기</span></button><button id="openImage" class="mini"><span data-i18n="＋ 사진 열기">＋ 사진 열기</span></button></div>
+      <div class="flex items-center gap-1"><button id="openImage" class="mini"><span data-i18n="＋ 사진 열기">＋ 사진 열기</span></button><button id="closeImage" class="mini" disabled><span aria-hidden="true">×</span> <span data-i18n="사진 닫기">사진 닫기</span></button></div>
     </nav>
-    <main class="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_280px]">
+    <main id="workspace" class="grid min-h-0 flex-1" style="grid-template-columns:220px minmax(0,1fr)">
       <aside class="flex min-h-0 flex-col border-r border-line bg-panel/40">
-        <div class="flex items-center justify-between px-5 pt-6 pb-4"><h2 class="font-medium"><span data-i18n="대응점">대응점</span></h2><span id="pairCount" class="coordinate text-slate-500">0 / 0</span></div>
-        <div class="px-4 pb-4"><button id="pick" class="btn primary w-full" disabled><span data-i18n="＋ 모델 점 선택">＋ 모델 점 선택</span></button></div>
+        <div class="flex items-center justify-between px-5 pt-6 pb-4"><h2 class="font-medium"><span data-i18n="대응점">대응점</span></h2><span id="pairCount" class="coordinate text-slate-500">0 / 0</span><button id="clearPoints" class="mini" disabled data-i18n="지우기">지우기</button></div>
+        <div class="px-4 pb-4"><button id="pick" class="btn primary w-full" disabled><span data-i18n="＋ 모델 점 선택">＋ 모델 점 선택</span></button><button id="reconnectModel" class="mini w-full hidden"><span data-i18n="모델 다시 연결">모델 다시 연결</span></button><button id="replaceModel" class="mini w-full hidden" data-i18n="다른 모델 연결">다른 모델 연결</button><p id="replaceHint" class="my-3 text-xs text-slate-400 hidden" data-i18n="새 모델을 열고 연결하세요. 사진과 점 위치는 유지됩니다.">새 모델을 열고 연결하세요. 사진과 점 위치는 유지됩니다.</p></div>
         <div id="points" class="min-h-0 flex-1 overflow-y-auto px-3"><div class="px-3 pt-8 text-center text-xs text-slate-600"><span data-i18n="선택한 점이 여기에 표시됩니다">선택한 점이 여기에 표시됩니다</span></div></div>
         <div class="border-t border-line p-4"><p class="section-label mb-2" data-i18n="DOCUMENT">DOCUMENT</p><p id="document" class="truncate text-xs text-slate-400">—</p></div>
       </aside>
@@ -28,22 +28,33 @@
           <canvas id="photoCanvas"></canvas>
           <div id="empty" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <div class="mb-6 flex size-20 items-center justify-center rounded-2xl border border-line bg-panel text-mint"><svg width="36" height="36" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="4" y="5" width="24" height="22" rx="3"/><circle cx="11" cy="12" r="2"/><path d="m5 24 7-7 5 4 5-8 6 9"/></svg></div>
-            <p class="mb-2 text-xl font-medium tracking-tight"><span data-i18n="사진에서 시작하세요">사진에서 시작하세요</span></p><p class="mb-7 text-xs text-slate-500">PNG · JPG · BMP · AVIF</p><button id="openEmpty" class="btn primary pointer-events-auto"><span data-i18n="사진 열기">사진 열기</span><span>↗</span></button>
+            <p class="mb-2 text-xl font-medium tracking-tight"><span data-i18n="사진에서 시작하세요">사진에서 시작하세요</span></p><p class="mb-7 text-xs text-slate-500"><span data-i18n="PNG · JPG · WebP · TIFF 등">PNG · JPG · WebP · TIFF 등</span></p><div class="flex items-center gap-3 pointer-events-auto"><button id="openEmpty" class="btn primary"><span data-i18n="사진 열기">사진 열기</span><span>↗</span></button><button id="openEmptyProject" class="btn" disabled><span data-i18n="프로젝트 열기">프로젝트 열기</span><span>↗</span></button></div>
           </div>
           <div id="activePoint" class="pointer-events-none absolute top-4 left-4 hidden rounded-lg border border-mint/30 bg-ink/90 px-3 py-2 text-xs text-mint"></div>
           <div id="toast" role="status" class="pointer-events-none absolute right-4 bottom-4 left-4 hidden rounded-xl border border-line bg-panel px-4 py-3 text-xs shadow-xl"></div>
         </div>
         <div class="flex h-10 shrink-0 items-center justify-between px-5 text-[10px] text-slate-500"><span id="canvasHint"><span data-i18n="점 끌어서 수정 · 스크롤 확대 · 우클릭 이동">점 끌어서 수정 · 스크롤 확대 · 우클릭 이동</span></span><span id="cursor" class="coordinate">—</span></div>
       </section>
-      <aside class="overflow-y-auto border-l border-line bg-panel/40 p-5">
+      <aside id="alignmentPanel" class="hidden overflow-y-auto border-l border-line bg-panel/40 p-5">
         <p class="section-label mb-5" data-i18n="ALIGNMENT">ALIGNMENT</p>
         <h2 class="mb-2 text-base font-medium"><span data-i18n="카메라 정합">카메라 정합</span></h2>
         <div class="mb-6 flex items-center gap-2 text-xs text-slate-500"><span id="alignmentDot" class="dot"></span><span id="alignmentStatus"><span data-i18n="검증 대기">검증 대기</span></span></div>
-        <button id="fitCamera" class="btn primary mb-2 w-full" disabled><span data-i18n="카메라 계산">카메라 계산</span></button>
+        <button id="fitCamera" class="btn primary mb-2 w-full" disabled><span id="calculateSpinner" class="calculate-spinner hidden" aria-hidden="true"></span><span id="calculateLabel" data-i18n="카메라 계산">카메라 계산</span></button>
+        <label class="flex items-center gap-2 mb-2 text-xs"><input id="automaticRecalculate" type="checkbox" checked style="width:auto"><span data-i18n="자동 재계산">자동 재계산</span></label>
+        <label class="flex items-center gap-2 mb-2 text-xs"><input id="estimatePrincipal" type="checkbox" style="width:auto"><span data-i18n="광학 중심 추정">광학 중심 추정</span></label>
+        <p id="principalHint" class="mb-2 text-xs text-slate-400 hidden" data-i18n="잘리거나 합성된 사진에 사용 · 렌즈 보정 미검증">잘리거나 합성된 사진에 사용 · 렌즈 보정 미검증</p>
         <p id="fitSummary" class="mb-4 text-xs text-slate-400"></p>
         <button id="overlay" class="btn primary mb-2 w-full" disabled><span data-i18n="IronCAD에서 확인 ↗">IronCAD에서 확인 ↗</span></button>
+        <label class="block mb-2 text-xs"><span data-i18n="사진 불투명도">사진 불투명도</span> <output id="photoOpacityValue">59%</output><input id="photoOpacity" type="range" min="0" max="100" value="59" step="1" aria-label="사진 불투명도" data-i18n-aria-label="사진 불투명도" disabled></label>
         <button id="restore" class="btn mb-6 w-full" disabled><span data-i18n="원래 보기로">원래 보기로</span></button>
-        <details class="border-t border-line py-4"><summary class="text-xs font-medium text-slate-300"><span data-i18n="카메라 조정">카메라 조정</span></summary>
+        <div class="border-t border-line py-4">
+          <button id="adjustCamera" class="btn w-full" disabled data-i18n="카메라 조정">카메라 조정</button>
+          <p id="adjustHint" class="my-3 text-xs text-slate-400 hidden" data-i18n="IronCAD에서 회전·이동·확대하여 사진에 맞춘 뒤 카메라를 저장하세요.">IronCAD에서 회전·이동·확대하여 사진에 맞춘 뒤 카메라를 저장하세요.</p>
+          <button id="saveCamera" class="btn primary w-full hidden" data-i18n="조정한 카메라 저장">조정한 카메라 저장</button>
+          <button id="cancelCamera" class="btn w-full hidden" data-i18n="조정 취소">조정 취소</button>
+          <button id="useCamera" class="mini w-full hidden" data-i18n="저장한 카메라 사용">저장한 카메라 사용</button>
+        </div>
+        <details class="border-t border-line py-4"><summary class="text-xs font-medium text-slate-300"><span data-i18n="고급 카메라 값">고급 카메라 값</span></summary>
           <div class="mt-5 space-y-4"><label class="block"><span class="field-label"><span data-i18n="위치 · X Y Z">위치 · X Y Z</span></span><input id="position" class="coordinate" aria-label="카메라 위치" data-i18n-aria-label="카메라 위치" placeholder="—"></label><label class="block"><span class="field-label"><span data-i18n="방향 · X Y Z">방향 · X Y Z</span></span><input id="direction" class="coordinate" aria-label="카메라 방향" data-i18n-aria-label="카메라 방향" placeholder="—"></label><label class="block"><span class="field-label"><span data-i18n="위쪽 · X Y Z">위쪽 · X Y Z</span></span><input id="up" class="coordinate" aria-label="카메라 위쪽" data-i18n-aria-label="카메라 위쪽" placeholder="—"></label><label class="block"><span class="field-label"><span data-i18n="화각 · SDK 값">화각 · SDK 값</span></span><input id="field" class="coordinate" aria-label="카메라 화각" data-i18n-aria-label="카메라 화각" placeholder="—"></label><button id="apply" class="btn w-full" disabled><span data-i18n="카메라 적용">카메라 적용</span></button></div>
         </details>
         <details class="border-t border-line py-4"><summary class="text-xs font-medium text-slate-300"><span data-i18n="진단">진단</span></summary>
@@ -51,7 +62,7 @@
         </details>
       </aside>
     </main>
-    <footer class="flex h-7 shrink-0 items-center justify-between border-t border-line px-5 text-[9px] tracking-wide text-slate-600"><span>IRONCAD PHOTOMATCH</span><span id="footerState"><span data-i18n="연결 대기">연결 대기</span></span></footer>
+    <footer class="flex h-7 shrink-0 items-center justify-between border-t border-line px-5 text-[9px] tracking-wide text-slate-600"><span class="flex items-center gap-3">IRONCAD PHOTOMATCH<a id="githubLink" href="https://github.com/BertranK/IronCAD-PhotoMatch" target="_blank" rel="noopener noreferrer" aria-label="PhotoMatch on GitHub" title="PhotoMatch on GitHub" class="text-slate-400 hover:text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2.23c-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.23-1.28-5.23-5.69 0-1.26.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.18a10.99 10.99 0 0 1 5.75 0c2.2-1.49 3.16-1.18 3.16-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.08 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.06.78 2.14v3.18c0 .31.21.68.79.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg></a></span><span id="footerState"><span data-i18n="연결 대기">연결 대기</span></span></footer>
   </div>
   <script src="localization.js"></script><script src="coordinates.js"></script><script src="app.js"></script>
 </body>

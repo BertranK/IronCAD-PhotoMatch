@@ -2,6 +2,14 @@
 
 extern const CLSID CLSID_PhotoMatchProto={0xa44d3379,0xfc03,0x4cbf,{0x9b,0x10,0xa8,0xcc,0x56,0xb3,0xa7,0xe1}};
 CComModule _Module;
+static IPictureDispPtr commandIcon(int size) {
+    HBITMAP bitmap=LoadBitmapW(_Module.GetModuleInstance(),MAKEINTRESOURCEW(size==16?IDB_PHOTOMATCH_SMALL:IDB_PHOTOMATCH_LARGE));
+    if(!bitmap)throw std::runtime_error("Cannot load PhotoMatch icon");
+    PICTDESC picture{};picture.cbSizeofstruct=sizeof(picture);picture.picType=PICTYPE_BITMAP;picture.bmp.hbitmap=bitmap;
+    IPictureDispPtr result;
+    HRESULT hr=OleCreatePictureIndirect(&picture,IID_IPictureDisp,TRUE,reinterpret_cast<void**>(&result));
+    if(FAILED(hr)){DeleteObject(bitmap);checked(hr);}return result;
+}
 // Persist initialization stages so a failed host load is diagnosable without UI automation.
 static void loadLog(const CString& message) noexcept {
     try {
@@ -45,15 +53,16 @@ public:
             loadLog(L"Host application acquired");
             dialog_.reset(new HostSession(app));dialog_->Start();
             loadLog(L"Hidden host dispatcher created");
-            checked(site_->CreateCommandHandler(CComBSTR(L"PhotoMatchProto.Open"),CComBSTR(L"PhotoMatch \uC5F4\uAE30"),
-                CComBSTR(L"IronCAD PhotoMatch \uC5F4\uAE30"),CComBSTR(L"IronCAD PhotoMatch"),nullptr,nullptr,&command_));
+            auto smallIcon=commandIcon(16),largeIcon=commandIcon(32);
+            checked(site_->CreateCommandHandler(CComBSTR(L"PhotoMatchProto.Open"),CComBSTR(L"PhotoMatch"),
+                CComBSTR(L"Open IronCAD PhotoMatch"),CComBSTR(L"PhotoMatch"),smallIcon,largeIcon,&command_));
             checked(CComObject<ShowCommand>::CreateInstance(&sink_));sink_->AddRef();sink_->dialog=dialog_.get();checked(sink_->Advise(command_));
             checked(command_->put_Enabled(VARIANT_TRUE));
             IZEnvironmentMgrPtr environments;checked(app->get_EnvironmentMgr(&environments));IZEnvironmentPtr scene;
-            checked(environments->get_Environment(Z_ENV_SCENE,&scene));IZControlBarPtr bar;checked(scene->AddControlBar(site_,CComBSTR(L"IronCAD PhotoMatch"),&bar));
+            checked(environments->get_Environment(Z_ENV_SCENE,&scene));IZControlBarPtr bar;checked(scene->AddControlBar(site_,CComBSTR(L"PhotoMatch"),&bar));
             IZControlsPtr controls;checked(bar->get_Controls(&controls));IZControlDescriptorPtr descriptor;checked(command_->get_ControlDescriptor(&descriptor));
             IZControlPtr button;checked(controls->Add(Z_CONTROL_BUTTON,descriptor,nullptr,&button));
-            IZRibbonBarPtr ribbon;checked(scene->GetRibbonBar(Z_RIBBONBAR,&ribbon));checked(ribbon->AddButton(descriptor));
+            IZRibbonBarPtr ribbon;checked(scene->GetRibbonBar(Z_RIBBONBAR,&ribbon));checked(ribbon->AddButton2(descriptor,VARIANT_TRUE));
             checked(scene->AddAsMenu(site_,bar));
             loadLog(L"InitSelf ready; pipe bridge active; PhotoMatch menu registered");return S_OK;
         }catch(const _com_error& e){CString msg;msg.Format(L"InitSelf failed: HRESULT 0x%08X",unsigned(e.Error()));loadLog(msg);DeInitSelf();return e.Error();}

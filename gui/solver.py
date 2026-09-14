@@ -1,11 +1,12 @@
 """Perspective pose and focal fitting in original photo pixels; no lens calibration."""
 import numpy as np
+import cv2
 from scipy.linalg import rq
 from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation
 
 
-def fit_camera(world, pixels, width, height, initial_camera=None):
+def fit_camera(world, pixels, width, height, initial_camera=None, estimate_principal=False):
     world, pixels = np.asarray(world, dtype=float), np.asarray(pixels, dtype=float)
     if world.ndim != 2 or world.shape[1:] != (3,) or len(world) < 6 or pixels.shape != (len(world), 2):
         raise ValueError("깊이가 다른 모델 점 6개 이상을 연결하세요.")
@@ -61,6 +62,20 @@ def fit_camera(world, pixels, width, height, initial_camera=None):
             if result.success and np.isfinite(result.fun).all(): fits.append(result)
     if not fits: raise ValueError("카메라를 계산하지 못했습니다. 대응점을 확인하세요.")
     best = min(fits, key=lambda result: np.dot(result.fun, result.fun))
+    if estimate_principal:
+        # Keep square pixels and zero distortion fixed. The principal point is
+        # expressed in the unchanged source image, including cropped composites.
+        def shifted_project(parameters):
+            focal = np.exp(parameters[6]); cx, cy = parameters[7:9]
+            intrinsic = np.array([[focal, 0, cx], [0, focal, cy], [0, 0, 1.]])
+            translation = np.r_[parameters[3:5], 1.01+np.exp(parameters[5])]
+            return cv2.projectPoints(x, parameters[:3], translation, intrinsic, None)[0].reshape(-1, 2)
+        best = least_squares(lambda v: (shifted_project(v)-pixels).ravel(), np.r_[best.x, principal],
+                             bounds=(lower+[-2*extent]*2, upper+[3*extent]*2), x_scale='jac', max_nfev=2000,
+                             ftol=1e-11, xtol=1e-11, gtol=1e-11)
+        if not best.success: raise ValueError("카메라를 계산하지 못했습니다. 대응점을 확인하세요.")
+        project = shifted_project
+        principal = best.x[7:9]
     v = best.x; rotation = Rotation.from_rotvec(v[:3]).as_matrix()
     translation = np.r_[v[3:5], 1.01+np.exp(v[5])]
     focal = float(np.exp(v[6])); predicted = project(v)
@@ -68,12 +83,16 @@ def fit_camera(world, pixels, width, height, initial_camera=None):
     normalized_jacobian = best.jac/np.maximum(np.linalg.norm(best.jac, axis=0), 1e-15)
     condition = float(np.linalg.cond(normalized_jacobian))
     stable = condition < 1e6 and lower[6]+.01 < v[6] < upper[6]-.01
+    if estimate_principal:
+        stable = stable and np.all(principal > -2*extent+.01) and np.all(principal < 3*extent-.01)
     return {'camera': {'position': (center-rotation.T@translation*scale).tolist(),
                        'direction': rotation[2].tolist(), 'up': (-rotation[1]).tolist(),
                        'field_sdk': float(2*np.arctan(min(width, height)/(2*focal)))},
             'focal_px': focal, 'principal_px': principal.tolist(),
             'predicted_image_px': predicted.tolist(), 'point_errors_px': errors.tolist(),
             'max_error_px': float(errors.max()), 'rms_error_px': float(np.sqrt(np.mean(errors**2))),
-            'stable': bool(stable), 'condition': condition, 'precision_passed': bool(stable and errors.max() <= .1),
-            'model': 'perspective_centered_principal_square_pixels_no_distortion',
+            'stable': bool(stable), 'condition': condition, 'precision_passed': bool(stable and errors.max() <= .1 and not estimate_principal),
+            'source': 'solver', 'estimate_principal': bool(estimate_principal),
+            'intrinsics_independently_validated': False,
+            'model': 'perspective_estimated_principal_square_pixels_no_distortion' if estimate_principal else 'perspective_centered_principal_square_pixels_no_distortion',
             'coordinate_system': 'original_image_pixels'}

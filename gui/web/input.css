@@ -34,6 +34,7 @@
   .section-label { @apply text-[10px] font-semibold tracking-[.18em] text-slate-500 uppercase; }
   .step { @apply flex items-center gap-2 text-xs text-slate-500; }
   .step.active { @apply text-mint; }
+  .reconnect-point { font-size:10px; line-height:14px; padding:2px 6px; }
   .point-row { @apply w-full rounded-xl border border-transparent p-3 text-left; }
   .point-row.selected { @apply border-mint/40 bg-mint/5; }
   .point-row:not(.selected):hover { @apply bg-white/5; }
@@ -55,3 +56,7 @@
   header { padding-inline:12px; } .header-actions > div { display:none; }
   nav { padding-inline:12px; } nav > div { gap:10px; }
 }
+
+.calculate-spinner { width:14px; height:14px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:calculate-spin .8s linear infinite; }
+@keyframes calculate-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .calculate-spinner { animation:none; } }

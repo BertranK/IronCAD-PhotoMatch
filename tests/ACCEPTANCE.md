@@ -49,18 +49,32 @@
 
 - MFC 검증 대화상자가 나타나지 않고 Python 창에서 현재 문서가 표시된다.
 - 모델 꼭짓점 선택 이벤트가 대응점 목록에 반영된다. 사진에서 지정한 위치는 원본 픽셀로 저장된다.
-- 문서 변경 또는 재캡처 후 이전 대응점 연결이 제거되며, 이전 세션의 적용 요청은 거부된다.
+- 같은 문서에서는 검증 가능한 모델 참조와 사진 좌표를 유지한다. 다른 문서의 이전 대응점은 검토 상태로 보존하고, 이전 세션의 적용 요청은 거부한다.
 - Python GUI 종료 시 테스트 카메라가 복원된다. GUI가 중단되어도 IronCAD를 종료시키지 않는다.
 - 연결 단절 시 CAD 작업 버튼이 비활성화된다. 전송 실패한 쓰기 명령을 자동 재시도하지 않는다.
-- PNG/JPG/BMP/AVIF 및 잘못된 이미지 입력을 시험한다. 캐시 변환은 원본 크기/방향을 보존한다.
+- README에 기재된 14개 이미지 형식 및 잘못된 이미지 입력을 시험한다. 캐시 변환은 원본 크기/방향을 보존한다.
 
 ## Windows 표시와 언어
 
 - Windows 앱 색 모드의 밝게/어둡게 전환이 GUI와 제목 표시줄에 반영된다.
 - 언어 선택은 한국어 / English를 제공하고 수동 선택은 다음 실행에 유지된다. 별도의 시스템 선택 항목은 표시하지 않는다.
-- 기본 시스템 설정에서는 Windows 표시 언어가 ko이면 한국어, 그 외에는 영어를 사용한다.
+- 새 설정의 기본 언어는 영어이다. 사용자가 선택한 언어는 유지된다.
 - 언어·테마 전환이 사진, 사용자 모델 이름, 선택한 대응점, 원본 이미지 좌표를 변경하지 않는다.
 - Windows 100%/150%에서 실제 창과 캔버스 DPI를 확인한다. 가능하면 배율이 다른 모니터로 이동한다.
 - 높은 배율의 작은 작업 영역에서 창이 들어가며, 패널 스크롤로 모든 기능에 접근할 수 있다.
 - GUI 브라우저 모의 시험의 DPR 결과를 실제 IronCAD 투영 결과로 대신하지 않는다.
 - 시험을 마치면 사용자의 원래 Windows 배율·테마와 언어 기본값을 복구하고 확인한다.
+
+## Point workflow and package checks
+
+- Finish model picking: photo selection starts at P1, or the first remaining card.
+- Clear: only photo coordinates disappear; model points, IDs, and photo remain.
+- Delete one pair: remaining IDs do not shift. Delete all model points: next ID is P1.
+- Model markers remain readable at 100% and 150% DPI. New points select their cards.
+- Photo opacity: test 0%, 25%, and 100%, including during camera adjustment and after resize.
+  Camera state, image placement, and point coordinates must remain unchanged.
+- Start without IronCAD: opening the first photo works. Matching requires a host.
+  A failed restore must retain the previous photo and points.
+- Install the extracted ZIP on a Windows x64 / IronCAD 2027 machine without Python or Node.
+  Verify WebView2, Add-Ins launch, writable cache, save/load, and preserved unrelated add-ins.
+- Close the host before updating or removing the package. Never overwrite unsaved work.

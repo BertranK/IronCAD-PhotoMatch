@@ -1,7 +1,7 @@
-param([switch]$Unregister,[ValidateSet('v140','v143')][string]$Toolset='v143')
+param([switch]$Unregister,[ValidateSet('v140','v143')][string]$Toolset='v143',[string]$IronRoot='')
 $ErrorActionPreference='Stop'
 $protoRoot=Split-Path -Parent $PSScriptRoot
-$ironRoot=Split-Path -Parent (Split-Path -Parent $protoRoot)
+if (!$IronRoot) { $IronRoot=Split-Path -Parent (Split-Path -Parent $protoRoot) }
 $config=Join-Path $ironRoot 'Config\Ironcad.Addin.config'
 $backup=Join-Path $protoRoot 'evidence\Ironcad.Addin.config.before-photomatch'
 $clsid='{A44D3379-FC03-4CBF-9B10-A8CC56B3A7E1}'
@@ -59,5 +59,5 @@ $matches=@($actual.IronCAD.AddIns.AddIn | Where-Object {$_.siteclsid -eq $clsid}
 if ($Unregister) {
     if ($matches.Count -ne 0) { throw 'PhotoMatch host entry removal failed.' }
 } elseif ($matches.Count -ne 1 -or $matches[0].inprocserver -ne 'PhotoMatchProto.dll' -or $matches[0].autoload -ne 'true') { throw 'Host config verification failed.' }
-& (Join-Path $PSScriptRoot 'configure-manifest.ps1') -Unregister:$Unregister
+& (Join-Path $PSScriptRoot 'configure-manifest.ps1') -Unregister:$Unregister -IronRoot $IronRoot
 Write-Output $(if($Unregister){'PhotoMatch host config entry removed; other entries preserved.'}else{'PhotoMatch host config verified. Restart IronCAD to reload the application list.'})

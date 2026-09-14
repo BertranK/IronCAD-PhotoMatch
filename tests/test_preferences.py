@@ -25,7 +25,7 @@ class PreferenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             prefs = Preferences(directory)
             with patch('preferences.windows_language', return_value='ko-KR'), patch('preferences.windows_theme', return_value='dark'):
-                self.assertEqual('ko', prefs.snapshot()['language'])
+                self.assertEqual('en', prefs.snapshot()['language'])
                 self.assertEqual('dark', prefs.snapshot()['theme'])
                 prefs.set_language('en')
                 self.assertEqual('en', Preferences(directory).snapshot()['language'])
@@ -43,4 +43,4 @@ class PreferenceTests(unittest.TestCase):
                 prefs.set_language('../other')
             self.assertEqual('ko', Preferences(directory).selection)
             prefs.path.write_text('{broken', encoding='utf-8')
-            self.assertEqual('system', Preferences(directory).selection)
+            self.assertEqual('en', Preferences(directory).selection)

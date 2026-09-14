@@ -1,2 +1,5 @@
 #pragma once
 #define IDR_ADDIN 102
+#define IDI_PHOTOMATCH 103
+#define IDB_PHOTOMATCH_SMALL 104
+#define IDB_PHOTOMATCH_LARGE 105

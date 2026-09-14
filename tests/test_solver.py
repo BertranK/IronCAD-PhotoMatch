@@ -9,6 +9,17 @@ from solver import fit_camera
 
 
 class SolverTests(unittest.TestCase):
+    def test_opencv_free_principal_recovers_cropped_projection_without_calibration_claim(self):
+        rng = np.random.default_rng(58)
+        points = rng.uniform(-1, 1, (18, 3))
+        q = points@Rotation.from_euler('xyz', [.2, -.4, .1]).as_matrix().T + [.6, -.2, 7]
+        pixels = q[:, :2]/q[:, 2, None]*850+[692, -4]
+        result = fit_camera(points, pixels, 750, 750, estimate_principal=True)
+        self.assertLess(result['max_error_px'], 1e-5)
+        np.testing.assert_allclose(result['principal_px'], [692, -4], atol=1e-4)
+        self.assertFalse(result['precision_passed'])
+        self.assertFalse(result['intrinsics_independently_validated'])
+
     def test_recovers_pose_and_focal_in_original_pixels_at_different_world_scales(self):
         rng = np.random.default_rng(27)
         points = rng.uniform(-1, 1, (12, 3))
