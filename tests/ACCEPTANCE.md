@@ -78,3 +78,5 @@
 - Run the setup EXE on a Windows x64 / IronCAD 2027 machine without Python or Node.
   Verify WebView2, Add-Ins launch, writable cache, save/load, and preserved unrelated add-ins.
 - Close the host before updating or removing the package. Never overwrite unsaved work.
+- Test WebView2 present (skip), absent with internet (install), and absent offline
+  (stop before copying PhotoMatch). Removing PhotoMatch must retain shared WebView2.

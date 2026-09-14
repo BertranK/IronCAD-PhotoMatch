@@ -1,6 +1,6 @@
 IronCAD PhotoMatch - Windows x64 / IronCAD 2027
 
-1. Install IronCAD 2027 and Microsoft Edge WebView2 Runtime.
+1. Install IronCAD 2027.
 2. Save your work and close IronCAD and PhotoMatch.
 3. Run PhotoMatch-2027-Setup.exe, choose the IronCAD 2027 installation folder,
    and allow administrator access. Then start IronCAD.
@@ -8,6 +8,10 @@ IronCAD PhotoMatch - Windows x64 / IronCAD 2027
    Match at least six pairs at different depths. You can add more.
 
 Python is bundled. Node.js is not required.
+Visual Studio, MFC/ATL build tools, and the Windows SDK are for developers only.
+Setup installs Microsoft Edge WebView2 automatically when missing. That download
+requires internet access; an existing runtime is reused. Setup stops if WebView2
+installation fails. Removing PhotoMatch leaves this shared runtime installed.
 The Microsoft Visual C++ x64 runtime and MFC runtime supplied with IronCAD
 must be available. This prototype package is unsigned.
 

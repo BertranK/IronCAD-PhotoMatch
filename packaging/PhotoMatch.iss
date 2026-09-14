@@ -1,6 +1,9 @@
 #ifndef PackageDir
   #error PackageDir must name a verified package directory.
 #endif
+#ifndef WebView2Bootstrapper
+  #error WebView2Bootstrapper must name the verified Microsoft installer.
+#endif
 
 [Setup]
 AppId={{A268C9A5-5C19-44F9-A840-17F680CBEA82}
@@ -30,11 +33,13 @@ AllowNoIcons=yes
 [Messages]
 SelectDirLabel3=Select your existing IronCAD 2027 installation folder, containing bin and Config.
 FinishedLabel=PhotoMatch is installed. Start IronCAD and choose Add-Ins > IronCAD PhotoMatch.
+ReadyLabel1=Setup will install PhotoMatch and, if missing, Microsoft Edge WebView2 Runtime. An internet connection is required to install WebView2.
 
 [Dirs]
 Name: "{app}\bin\PhotoMatch\setup\evidence"; Flags: uninsneveruninstall
 
 [Files]
+Source: "{#WebView2Bootstrapper}"; Flags: dontcopy
 Source: "{#PackageDir}\PhotoMatch\*"; DestDir: "{app}\bin\PhotoMatch"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#PackageDir}\build\v143\PhotoMatchProto.dll"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "{#PackageDir}\build\v143\PhotoMatchProto.dll"; DestDir: "{app}\bin\PhotoMatch\setup\build\v143"; Flags: ignoreversion
@@ -45,6 +50,7 @@ Source: "{#PackageDir}\THIRD-PARTY-NOTICES\*"; DestDir: "{app}\bin\PhotoMatch\TH
 Source: "{#PackageDir}\README.txt"; DestDir: "{app}\bin\PhotoMatch"; Flags: ignoreversion
 
 [Code]
+#include "WebView2.iss"
 function RunPowerShell(Script, Arguments: String): Integer;
 var Code: Integer;
 begin
@@ -71,6 +77,7 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   ExtractTemporaryFile('CheckHost.ps1');
   Result := CheckHost(ExpandConstant('{tmp}\CheckHost.ps1'));
+  if Result = '' then Result := EnsureWebView2(NeedsRestart);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

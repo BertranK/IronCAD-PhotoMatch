@@ -20,12 +20,14 @@ Animated and multipage images use the first frame or page. HEIC, camera RAW, and
 ## End-user package
 
 Run **PhotoMatch-2027-Setup.exe** and choose your IronCAD 2027 folder.
-Close IronCAD and PhotoMatch first; administrator access and Edge WebView2 are required.
-The package includes Python. See [package instructions](packaging/README.txt).
+Close IronCAD and PhotoMatch first; administrator access is required.
+Setup installs WebView2 automatically if missing (internet required).
+Python is bundled. Users do not need Node.js, Visual Studio, or the Windows SDK.
+See [package instructions](packaging/README.txt).
 
 ## Developer setup
 
-Requires Windows, IronCAD 2027, Python 3.13, Node.js, and Edge WebView2.
+For building from source only: Windows, IronCAD 2027, Python 3.13, Node.js, and Edge WebView2.
 Build tools: MSVC v143 x64 with MFC/ATL and Windows SDK 10.0.19041.0.
 
 Place the project under IronCAD's `ICAPI/PhotoMatchProto`. Run from that folder:
