@@ -12,3 +12,6 @@ __pycache__/
 .venv/
 node_modules/
 gui/.runtime/
+
+# Keep sample files local.
+testsample/
