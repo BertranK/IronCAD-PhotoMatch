@@ -3,7 +3,8 @@ IronCAD PhotoMatch - Windows x64 / IronCAD 2027
 1. Install IronCAD 2027.
 2. Save your work and close IronCAD and PhotoMatch.
 3. Run PhotoMatch-2027-Setup.exe, choose the IronCAD 2027 installation folder,
-   and allow administrator access. Then start IronCAD.
+   and allow administrator access. Setup enables PhotoMatch in Add-in Applications
+   for your Windows account. Then start IronCAD.
 4. Open Add-Ins > IronCAD PhotoMatch, open a photo, and pick model vertices.
    Match at least six pairs at different depths. You can add more.
 

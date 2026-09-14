@@ -34,10 +34,7 @@ if($process.ExitCode -ne 0){throw "regsvr32 failed ($($process.ExitCode))."}
 if ($Unregister) {
     if(Test-Path -LiteralPath $machineKey){throw 'Machine COM registration was not removed.'}
     & (Join-Path $PSScriptRoot 'configure-host.ps1') -Unregister -Toolset $Toolset -IronRoot $IronRoot
-    $legacyKey='HKCU:\Software\IronCAD\IRONCAD 29.0\Applications\PhotoMatchProto'
-    if((Test-Path -LiteralPath $legacyKey) -and (Get-Item -LiteralPath $legacyKey).GetValue('') -eq $clsid){
-        Remove-Item -LiteralPath $legacyKey -Recurse -Force
-    }
+    & (Join-Path $PSScriptRoot 'configure-user.ps1') -Unregister
     Write-Output 'PhotoMatch COM and host entries removed; deployed DLL retained.'
 } else {
     $registered=Get-Item -LiteralPath "$machineKey\InprocServer32"

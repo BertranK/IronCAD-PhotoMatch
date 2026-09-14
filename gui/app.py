@@ -186,13 +186,22 @@ class Api:
         except Exception as error:
             return {'ok': False, 'error': str(error)}
 
+    def _reconnect_points(self, session, saved):
+        # Reconnect consumes references only; saved measurement/log history can
+        # exceed the pipe's request limit even with a small number of points.
+        fields = {'id', 'object_id', 'vertex_id', 'api_coordinates',
+                  'transformed_coordinates', 'transform', 'binding_status'}
+        host = {'document': saved['document'],
+                'points': [{k:v for k,v in point.items() if k in fields} for point in saved['points']]}
+        return self._bridge.call('reconnect', session, {'host': host})
+
     def reconnect_model(self):
         try:
             with self._lock:
                 state = self._bridge.call('status'); self._accept(state)
                 if not self._review: return self._accept(state)
                 if self._review.get('document') != state.get('document'): raise ValueError('저장된 모델 문서를 먼저 여세요.')
-                state = self._bridge.call('reconnect', state['session'], {'host': self._review})
+                state = self._reconnect_points(state['session'], self._review)
                 self._review = None
                 self._key = (state['session'], state['capture_id'])
                 return self._accept(state)
@@ -255,7 +264,7 @@ class Api:
             if len(points) != len(data["correspondences"]) or not set(points) <= {p["id"] for p in saved["points"]}:
                 raise ValueError("모델의 대응점이 바뀌었습니다.")
             if not same_session and state.get("saved_point_reconnect") and state.get("document") == saved.get("document"):
-                state = self._bridge.call("reconnect", state["session"], {"host": saved})
+                state = self._reconnect_points(state["session"], saved)
                 same_session = True
             self._accept(state)
             self._image, self._points = image, points

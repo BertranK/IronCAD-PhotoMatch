@@ -14,7 +14,7 @@ $package=Join-Path $root "build\packages\PhotoMatch-2027-$stamp"
 New-Item -ItemType Directory -Path "$package\scripts","$package\build\v143","$package\evidence" -Force | Out-Null
 Copy-Item -LiteralPath "$root\build\frozen\PhotoMatch" -Destination $package -Recurse
 Copy-Item -LiteralPath "$root\build\v143\PhotoMatchProto.dll" -Destination "$package\build\v143"
-foreach ($file in 'register.ps1','configure-host.ps1','configure-manifest.ps1') {
+foreach ($file in 'register.ps1','configure-host.ps1','configure-manifest.ps1','configure-user.ps1') {
     Copy-Item -LiteralPath "$PSScriptRoot\$file" -Destination "$package\scripts"
 }
 Copy-Item -LiteralPath "$root\packaging\README.txt" -Destination $package

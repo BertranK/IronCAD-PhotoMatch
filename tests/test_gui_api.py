@@ -209,10 +209,46 @@ class ApiTests(unittest.TestCase):
             with patch.object(api._bridge,'call',side_effect=[current,rebound]) as bridge:
                 result=api._load_project(path)
                 self.assertIsNone(result['review']);self.assertEqual({'P1':[12,34]},result['image_points'])
-                self.assertEqual(('reconnect','new',{'host':saved}),bridge.call_args.args)
+                self.assertEqual(('reconnect','new',{'host':{'document':saved['document'],'points':saved['points']}}),bridge.call_args.args)
             with patch.object(api._bridge,'call',side_effect=[current,ValueError('changed vertex')]):
                 with self.assertRaisesRegex(ValueError,'changed vertex'):api._load_project(path)
                 self.assertEqual({'P1':[12,34]},api._points)
+    def test_large_saved_diagnostics_do_not_overflow_project_reconnect_request(self):
+        point={'id':'P1','object_id':'42','vertex_id':10,'api_coordinates':[1,2,3],
+               'transformed_coordinates':[1,2,3],'transform':[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
+               'binding_status':'verified','object_name':'model'}
+        model_points=[{**point,'id':f'P{i+1}','vertex_id':10+i} for i in range(60)]
+        saved={'session':'old','capture_id':1,'document':'test.ics','points':model_points,
+               'measurements':[{'diagnostic':'x'*70000}],'logs':['previous measurements']}
+        current={'session':'new','capture_id':0,'document':'test.ics','points':[],
+                 'saved_point_reconnect':True}
+        rebound={**current,'capture_id':1,'points':model_points}
+        image=load_image(Path(__file__).parent/'fixture/reference.png')
+        data=make_project(saved,image,{'P1':[12,34]})
+        self.assertGreater(len(json.dumps({'host':saved}).encode('utf-8')),65536)
+        requests=[]
+        def bridge(command,session='',args=None):
+            if command=='status': return current
+            encoded=json.dumps({'command':command,'session':session,'args':args}).encode('utf-8')
+            if len(encoded)>65536: raise ValueError('Request is too large')
+            requests.append(args['host'])
+            return rebound
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'large.json';original=json.dumps(data);path.write_text(original,encoding='utf-8')
+            api=Api()
+            with patch.object(api._bridge,'call',side_effect=bridge):
+                opened=api._load_project(path)
+                self.assertIsNone(opened['review'])
+                self.assertEqual({'P1':[12,34]},opened['image_points'])
+                api._review=saved
+                self.assertTrue(api.reconnect_model()['ok'])
+            self.assertEqual(original,path.read_text(encoding='utf-8'))
+        self.assertEqual(2,len(requests))
+        for host in requests:
+            self.assertEqual('test.ics',host['document'])
+            self.assertEqual([{k:v for k,v in p.items() if k!='object_name'} for p in model_points],host['points'])
+            self.assertEqual({'document','points'},set(host))
+
     def fitted_api(self):
         state={'session':'a','capture_id':1,'points':[{'id':f'P{i+1}','transformed_coordinates':[i%2,i//2,i%3]} for i in range(6)]}
         api=Api();api._bridge=FakeBridge(state);api._accept(state)

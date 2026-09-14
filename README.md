@@ -22,6 +22,7 @@ Animated and multipage images use the first frame or page. HEIC, camera RAW, and
 Run **PhotoMatch-2027-Setup.exe** and choose your IronCAD 2027 folder.
 Close IronCAD and PhotoMatch first; administrator access is required.
 Setup installs WebView2 automatically if missing (internet required).
+Setup checks IronCAD PhotoMatch in Add-in Applications for the installing user.
 Python is bundled. Users do not need Node.js, Visual Studio, or the Windows SDK.
 See [package instructions](packaging/README.txt).
 

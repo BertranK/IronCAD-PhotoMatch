@@ -8,7 +8,7 @@
 [Setup]
 AppId={{A268C9A5-5C19-44F9-A840-17F680CBEA82}
 AppName=IronCAD PhotoMatch
-AppVersion=2027 Preview
+AppVersion=2027
 VersionInfoVersion=0.1.0.0
 DefaultDirName={autopf}\IronCAD\2027
 AppendDefaultDirName=no
@@ -81,11 +81,21 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var Code: Integer;
 begin
-  if CurStep = ssPostInstall then
+  if CurStep = ssPostInstall then begin
     if RunPowerShell(ExpandConstant('{app}\bin\PhotoMatch\setup\scripts\register.ps1'),
         '-IronRoot "' + ExpandConstant('{app}') + '"') <> 0 then
       RaiseException('PhotoMatch registration failed. Run setup again after checking IronCAD and its runtime prerequisites.');
+    { The Applications checkbox belongs to the user who started Setup, even
+      when another administrator supplies credentials at the UAC prompt. }
+    if not ExecAsOriginalUser(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+        '-NoProfile -ExecutionPolicy Bypass -File "' +
+        ExpandConstant('{app}\bin\PhotoMatch\setup\scripts\configure-user.ps1') + '"',
+        '', SW_HIDE, ewWaitUntilTerminated, Code) then Code := -1;
+    if Code <> 0 then
+      RaiseException('PhotoMatch was registered, but could not be enabled for your Windows account. Enable IronCAD PhotoMatch in Add-in Applications.');
+  end;
 end;
 
 function InitializeUninstall: Boolean;
