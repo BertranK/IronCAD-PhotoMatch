@@ -4,8 +4,7 @@ build/
 .vs/
 
 # Local runtime evidence and vendor installation backups stay on this PC.
-evidence/*
-!evidence/.gitkeep
+evidence/
 __pycache__/
 *.pyc
 

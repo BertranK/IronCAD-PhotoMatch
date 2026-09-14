@@ -1,3 +1,4 @@
+param([string]$Compiler='')
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $python=Join-Path $root '.venv\Scripts\python.exe'
@@ -16,16 +17,11 @@ Copy-Item -LiteralPath "$root\build\v143\PhotoMatchProto.dll" -Destination "$pac
 foreach ($file in 'register.ps1','configure-host.ps1','configure-manifest.ps1') {
     Copy-Item -LiteralPath "$PSScriptRoot\$file" -Destination "$package\scripts"
 }
-foreach ($file in 'Install.cmd','Install.ps1','README.txt') {
-    Copy-Item -LiteralPath "$root\packaging\$file" -Destination $package
-}
+Copy-Item -LiteralPath "$root\packaging\README.txt" -Destination $package
 & $python "$root\packaging\licenses.py" "$package\THIRD-PARTY-NOTICES"
 if ($LASTEXITCODE -ne 0) { throw 'License collection failed.' }
 $report=Join-Path $root "build\package-check-$stamp.json"
 $process=Start-Process -FilePath "$package\PhotoMatch\PhotoMatch.exe" -ArgumentList ('--smoke-test "'+$report+'"') -WindowStyle Hidden -PassThru
 if (!$process.WaitForExit(60000)) { $process.Kill(); throw 'Frozen GUI check timed out.' }
 if (!(Test-Path -LiteralPath $report) -or !(Get-Content -LiteralPath $report -Raw | ConvertFrom-Json).ok) { throw 'Frozen GUI check failed.' }
-$zip="$package.zip"
-Compress-Archive -LiteralPath $package -DestinationPath $zip
-(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash | Set-Content -LiteralPath "$zip.sha256"
-Write-Output "Verified package: $zip"
+& "$PSScriptRoot\package-installer.ps1" -PackageDir $package -Compiler $Compiler

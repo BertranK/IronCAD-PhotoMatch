@@ -75,6 +75,6 @@
   Camera state, image placement, and point coordinates must remain unchanged.
 - Start without IronCAD: opening the first photo works. Matching requires a host.
   A failed restore must retain the previous photo and points.
-- Install the extracted ZIP on a Windows x64 / IronCAD 2027 machine without Python or Node.
+- Run the setup EXE on a Windows x64 / IronCAD 2027 machine without Python or Node.
   Verify WebView2, Add-Ins launch, writable cache, save/load, and preserved unrelated add-ins.
 - Close the host before updating or removing the package. Never overwrite unsaved work.

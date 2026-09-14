@@ -26,6 +26,7 @@ if ($entries.Count) {
 } else { $updated=$original }
 [xml]$validated=$updated
 if ($updated -cne $original) {
+    New-Item -ItemType Directory -Path (Split-Path -Parent $backup) -Force | Out-Null
     if (!(Test-Path -LiteralPath $backup)) { [IO.File]::WriteAllBytes($backup,[IO.File]::ReadAllBytes($path)) }
     [IO.File]::WriteAllText($path,$updated,$encoding)
 }

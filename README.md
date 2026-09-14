@@ -19,7 +19,7 @@ Animated and multipage images use the first frame or page. HEIC, camera RAW, and
 
 ## End-user package
 
-Extract the Windows x64 ZIP and run **Install.cmd**. Choose your IronCAD 2027 folder.
+Run **PhotoMatch-2027-Setup.exe** and choose your IronCAD 2027 folder.
 Close IronCAD and PhotoMatch first; administrator access and Edge WebView2 are required.
 The package includes Python. See [package instructions](packaging/README.txt).
 
@@ -39,7 +39,7 @@ Place the project under IronCAD's `ICAPI/PhotoMatchProto`. Run from that folder:
 
 Registration needs administrator access. Close IronCAD before updating the add-in.
 
-Create a tested end-user ZIP with `scripts/package.ps1`. Output stays in `build/packages/`.
+Install [Inno Setup 6](https://jrsoftware.org/isdl.php), then run `scripts/package.ps1 -Compiler "PATH\ISCC.exe"` to build the setup EXE. Output stays in `build/packages/`.
 
 ## Usage
 
@@ -61,4 +61,4 @@ See [test guide](tests/README.md), [status](docs/PROTO0_STATUS.md), and [live ac
 
 ## Folders
 
-`src/` add-in · `core/` projection math · `gui/` interface · `scripts/` setup and build · `tests/` checks · `docs/` documentation · `evidence/` local results
+`src/` add-in · `core/` projection math · `gui/` interface · `scripts/` setup and build · `tests/` checks · `docs/` documentation

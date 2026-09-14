@@ -1,14 +1,13 @@
 IronCAD PhotoMatch - Windows x64 / IronCAD 2027
 
 1. Install IronCAD 2027 and Microsoft Edge WebView2 Runtime.
-2. Extract the entire ZIP into a writable folder. Keep it for backups/removal.
-3. Save your work and close IronCAD and PhotoMatch.
-4. Double-click Install.cmd, choose the IronCAD 2027 installation folder,
+2. Save your work and close IronCAD and PhotoMatch.
+3. Run PhotoMatch-2027-Setup.exe, choose the IronCAD 2027 installation folder,
    and allow administrator access. Then start IronCAD.
-5. Open Add-Ins > IronCAD PhotoMatch, open a photo, and pick model vertices.
+4. Open Add-Ins > IronCAD PhotoMatch, open a photo, and pick model vertices.
    Match at least six pairs at different depths. You can add more.
 
-Python and Node.js are bundled or unnecessary; do not install them.
+Python is bundled. Node.js is not required.
 The Microsoft Visual C++ x64 runtime and MFC runtime supplied with IronCAD
 must be available. This prototype package is unsigned.
 
@@ -29,13 +28,16 @@ IronCAD Add-Ins button. Hover over the connection message for the error.
 The first photo can open without IronCAD; matching requires a connection.
 Packaged preferences and logs: %LOCALAPPDATA%\IronCADPhotoMatch.
 
-Removal: close IronCAD and PhotoMatch, then run administrator PowerShell
-from this extracted folder:
-  .\scripts\register.ps1 -Unregister -IronRoot "YOUR IRONCAD 2027 FOLDER"
-This removes the add-in registration. Installed files, saved projects,
-and user preferences remain. Backups are retained in evidence.
+Removal: close IronCAD and PhotoMatch, then remove IronCAD PhotoMatch
+from Windows Settings > Apps > Installed apps. Saved projects, user
+preferences, and host-config backups remain. Other add-ins are preserved.
 
 Validation: native and GUI regression tests plus a frozen WebView2 launch
 check are required for package creation. Installation and camera accuracy
 still require acceptance checks on the recipient's IronCAD machine.
 Third-party license texts are included in THIRD-PARTY-NOTICES.
+
+Build: install Inno Setup 6 from https://jrsoftware.org/isdl.php, then run
+scripts/package.ps1 -Compiler "PATH\ISCC.exe" from the source tree.
+Build output, personal samples, and local evidence stay outside Git.
+Installer source and regression tests stay in Git for repeatable builds.

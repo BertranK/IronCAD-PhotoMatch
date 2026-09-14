@@ -25,7 +25,7 @@ are now available by hovering over the connection message.
 
 ## Remaining acceptance
 
-The latest package has not been installed into the user's open IronCAD session.
+The setup EXE still requires installation and removal checks on a recipient machine.
 Live opacity changes, marker visibility, camera restoration, and the complete
 100%/150% DPI matrix require [host acceptance](../tests/ACCEPTANCE.md).
 A low fitted residual is not independent camera or lens calibration. Lens correction

@@ -55,6 +55,7 @@ $hostModules=@(Get-Process -Name IronCAD -ErrorAction SilentlyContinue | ForEach
     }
 })
 $report=[ordered]@{host_config_and_deployed_dll=$hostConfigured;autoload_configured=$autoLoadConfigured;machine_com_registration=$machineRegistered;timestamp_utc=[DateTime]::UtcNow.ToString('o');com_category_enumeration=$found;host_modules=$hostModules;host_ui_visibility='requires_screen_verification';clsid='{A44D3379-FC03-4CBF-9B10-A8CC56B3A7E1}'}
+New-Item -ItemType Directory -Path (Join-Path $PSScriptRoot '..\evidence') -Force | Out-Null
 $report | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $PSScriptRoot '..\evidence\registration.json') -Encoding utf8
 $report | ConvertTo-Json
 if (!$found) { throw 'PhotoMatchProto was not discoverable through COM category enumeration.' }

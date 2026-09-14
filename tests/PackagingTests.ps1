@@ -1,13 +1,13 @@
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
-foreach ($file in @('packaging\Install.ps1','scripts\package.ps1','scripts\register.ps1','scripts\configure-host.ps1','scripts\configure-manifest.ps1')) {
+foreach ($file in @('packaging\CheckHost.ps1','scripts\package-installer.ps1','scripts\package.ps1','scripts\register.ps1','scripts\configure-host.ps1','scripts\configure-manifest.ps1')) {
     $tokens=$null;$errors=$null
     [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $root $file),[ref]$tokens,[ref]$errors)
     if ($errors.Count) { throw "PowerShell syntax errors in $file : $errors" }
 }
 # Exercise config changes in a disposable fake installation; never register COM.
 $scratch=Join-Path $root ('build\packaging-test-'+[guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path "$scratch\scripts","$scratch\build\v143","$scratch\evidence","$scratch\host\bin","$scratch\host\Config" -Force | Out-Null
+New-Item -ItemType Directory -Path "$scratch\scripts","$scratch\build\v143","$scratch\host\bin","$scratch\host\Config" -Force | Out-Null
 foreach ($file in 'configure-host.ps1','configure-manifest.ps1') {
     Copy-Item -LiteralPath "$root\scripts\$file" -Destination "$scratch\scripts"
 }
