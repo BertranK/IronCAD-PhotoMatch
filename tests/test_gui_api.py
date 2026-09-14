@@ -8,6 +8,36 @@ class FakeBridge:
     def __init__(self,state): self.state=state
     def call(self,*args): return self.state
 class ApiTests(unittest.TestCase):
+    def test_delete_all_pairs_then_pick_and_match_six_again(self):
+        import copy
+        api=Api();image=load_image(Path(__file__).parent/'fixture/reference.png');api._image=image
+        world=[[0,0,0],[1,0,0],[0,1,0],[1,1,1],[0,0,2],[1,2,1]]
+        rows=[{'id':f'P{i+1}','binding_status':'connected','transformed_coordinates':p} for i,p in enumerate(world)]
+        state={'session':'a','capture_id':1,'document':'test.ics','point_delete_supported':True,'points':copy.deepcopy(rows)}
+        def bridge(command,session='',args=None):
+            if command=='delete_point':
+                state['points']=[p for p in state['points'] if p['id']!=args['id']]
+                if not state['points']: state['capture_id']+=1
+            return copy.deepcopy(state)
+        with patch.object(api._bridge,'call',side_effect=bridge):
+            api._accept(copy.deepcopy(state))
+            for cycle in range(2):
+                for row in rows:
+                    x,y,z=row['transformed_coordinates']
+                    result=api.set_point('a',state['capture_id'],row['id'],image['width']/2+100*(x+.3)/(z+5),image['height']/2+100*(y+.2)/(z+5))
+                    self.assertTrue(result['ok'],result.get('error'))
+                result=api.fit_points()
+                self.assertTrue(result['ok'],result.get('error'))
+                self.assertEqual([p['id'] for p in rows],result['fit']['ids'])
+                if cycle==0:
+                    for row in rows:
+                        result=api.delete_point('a',state['capture_id'],row['id'])
+                        self.assertTrue(result['ok'],result.get('error'))
+                    self.assertEqual({},result['image_points']);self.assertIsNone(result['review']);self.assertIsNone(result['fit'])
+                    self.assertIs(api._image,image)
+                    state['points']=copy.deepcopy(rows)
+                    api._accept(copy.deepcopy(state))
+
     def test_first_photo_opens_without_host_but_active_preview_is_preserved_on_failure(self):
         from unittest.mock import Mock
         api=Api();api._window=Mock()

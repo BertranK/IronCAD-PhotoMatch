@@ -16,7 +16,8 @@ installation fails. Removing PhotoMatch leaves this shared runtime installed.
 The Microsoft Visual C++ x64 runtime and MFC runtime supplied with IronCAD
 must be available. This prototype package is unsigned.
 
-Finish model picking to start photo matching at P1 (or the first remaining card).
+Finish model picking to select the first point without a photo location.
+Existing photo matches stay saved when adding more model points.
 Photo opacity controls the IronCAD overlay from 0% to 100%.
 Automatic recalculate is enabled by default. Preview in IronCAD, adjust
 the camera if needed, and save results as JSON. Restore view returns to

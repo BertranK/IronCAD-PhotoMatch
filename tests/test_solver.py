@@ -9,6 +9,14 @@ from solver import fit_camera
 
 
 class SolverTests(unittest.TestCase):
+    def test_flat_points_explain_geometry_instead_of_requesting_six_again(self):
+        points = np.array([[0,0,0],[1,0,0],[0,1,0],[1,1,0],[2,0,0],[0,2,0]])
+        pixels = points[:, :2]*100+200
+        with self.assertRaisesRegex(ValueError, '같은 평면'):
+            fit_camera(points, pixels, 750, 750)
+        with self.assertRaisesRegex(ValueError, '6개 이상'):
+            fit_camera(points[:5], pixels[:5], 750, 750)
+
     def test_opencv_free_principal_recovers_cropped_projection_without_calibration_claim(self):
         rng = np.random.default_rng(58)
         points = rng.uniform(-1, 1, (18, 3))

@@ -47,7 +47,7 @@ Install [Inno Setup 6](https://jrsoftware.org/isdl.php), then run `scripts/packa
 ## Usage
 
 1. Open a model and photo.
-2. Pick at least six model points at different depths. Finish picking, then mark the photo from P1.
+2. Pick at least six model points at different depths. Finish picking to select the first point without a photo location.
 3. The camera recalculates as points change with **Automatic recalculate** enabled (default).
 4. **Preview in IronCAD**; use **Adjust camera** if needed.
 5. **Save** results or **Open** a saved file.

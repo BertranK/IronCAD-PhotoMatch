@@ -11,11 +11,11 @@ test('clicking the photo without a model point shows picking guidance', async ()
     const page=await browser.newPage({viewport:{width:1320,height:860}}),errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(preview=>{
-      window.pointCalls=[];window.testState={session:'a',capture_id:1,captured:true,document:'brick.ics',points:[]};
+      window.pointCalls=[];window.testPoints={};window.testState={session:'a',capture_id:1,captured:true,document:'brick.ics',points:[]};
       window.pywebview={api:{preferences:async()=>({theme:'dark',language:'en'}),
-        call:async()=>({ok:true,state:structuredClone(testState),image_points:{}}),
+        call:async()=>({ok:true,state:structuredClone(testState),image_points:structuredClone(testPoints)}),
         open_image:async()=>({ok:true,image:{preview,width:1600,height:1000,name:'reference.png'}}),
-        set_point:async(...args)=>{pointCalls.push(args);return {ok:true,image_points:{P1:args.slice(-2)}};}}};
+        set_point:async(...args)=>{pointCalls.push(args);testPoints[args[2]]=args.slice(-2);return {ok:true,image_points:structuredClone(testPoints)};}}};
     },'data:image/png;base64,'+readFileSync(resolve(__dirname,'fixture/reference.png')).toString('base64'));
     await page.goto(pathToFileURL(resolve(__dirname,'../gui/web/index.html')).href);
     await page.evaluate(()=>window.dispatchEvent(new Event('pywebviewready')));
@@ -44,6 +44,46 @@ test('clicking the photo without a model point shows picking guidance', async ()
     assert.equal(await page.evaluate(()=>selected),'P1');
     await page.mouse.click(center.x,center.y);await page.waitForFunction(()=>!busy);
     assert.equal(await page.evaluate(()=>pointCalls[2][2]),'P1');
+    assert.deepEqual(errors,[]);
+  } finally {await browser.close();}
+});
+
+test('finishing additional model picks selects the first unmatched photo card', async () => {
+  const browser=await chromium.launch({channel:'msedge',headless:true});
+  try {
+    const page=await browser.newPage({viewport:{width:1320,height:860}}),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    await page.addInitScript(preview=>{
+      window.testPoints=Object.fromEntries(Array.from({length:6},(_,i)=>['P'+(i+1),[100+i*150,300]]));
+      window.testState={session:'a',capture_id:1,captured:true,document:'brick.ics',picking:false,
+        points:Object.keys(testPoints).map(id=>({id,api_coordinates:[1,2,3],transformed_coordinates:[1,2,3]}))};
+      window.pointCalls=[];
+      const result=()=>({ok:true,state:structuredClone(testState),image_points:structuredClone(testPoints)});
+      window.pywebview={api:{preferences:async()=>({theme:'dark',language:'en'}),
+        call:async command=>{if(command==='pick')testState.picking=true;if(command==='stop_pick')testState.picking=false;return result();},
+        open_project:async()=>({...result(),image:{preview,width:1600,height:1000,name:'reference.png'}}),
+        set_point:async(s,c,id,x,y)=>{pointCalls.push(id);testPoints[id]=[x,y];return result();}}};
+    },'data:image/png;base64,'+readFileSync(resolve(__dirname,'fixture/reference.png')).toString('base64'));
+    await page.goto(pathToFileURL(resolve(__dirname,'../gui/web/index.html')).href);
+    await page.evaluate(()=>window.dispatchEvent(new Event('pywebviewready')));
+    await page.locator('#openProject').click();await page.waitForFunction(()=>photo!==null);
+    await page.locator('#automaticRecalculate').uncheck();
+    assert.equal(await page.locator('#fitSummary').textContent(),'Ready to calculate');
+    const original=await page.evaluate(()=>structuredClone(imagePoints));
+    await page.locator('#pick').click();await page.waitForFunction(()=>!busy&&state.picking);
+    await page.evaluate(()=>{
+      for(const id of ['P7','P8'])testState.points.push({id,api_coordinates:[4,5,6],transformed_coordinates:[4,5,6]});
+      accept({ok:true,state:structuredClone(testState),image_points:structuredClone(testPoints)});
+    });
+    assert.equal(await page.evaluate(()=>selected),'P8');
+    await page.locator('#pick').click();await page.waitForFunction(()=>!busy&&!state.picking);
+    assert.equal(await page.locator('.point-row.selected .coordinate').first().textContent(),'P7');
+    assert.deepEqual(await page.evaluate(()=>imagePoints),original);
+    const position=await page.evaluate(()=>{const v=view(),r=photoCanvas.getBoundingClientRect();return {x:r.x+v.x+1100*v.scale,y:r.y+v.y+600*v.scale};});
+    await page.mouse.click(position.x,position.y);await page.waitForFunction(()=>!busy);
+    assert.equal(await page.evaluate(()=>selected),'P8');
+    assert.deepEqual(await page.evaluate(()=>pointCalls),['P7']);
+    assert.deepEqual(await page.evaluate(()=>Object.fromEntries(Object.entries(imagePoints).filter(([id])=>id!=='P7'))),original);
     assert.deepEqual(errors,[]);
   } finally {await browser.close();}
 });

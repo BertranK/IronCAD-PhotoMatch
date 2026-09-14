@@ -17,7 +17,7 @@ def fit_camera(world, pixels, width, height, initial_camera=None, estimate_princ
     center = world.mean(axis=0)
     scale = np.max(np.linalg.norm(world-center, axis=1))
     if scale < 1e-12 or np.linalg.svd((world-center)/scale, compute_uv=False)[-1] < 1e-3:
-        raise ValueError("깊이가 다른 모델 점 6개 이상을 연결하세요.")
+        raise ValueError("모델 점이 같은 평면이나 직선에 가깝습니다. 다른 깊이의 점을 추가하거나 교체하세요.")
     x = (world-center)/scale
     principal = np.array([width/2, height/2])
     extent = max(width, height)

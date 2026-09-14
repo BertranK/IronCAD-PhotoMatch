@@ -35,7 +35,7 @@ function accept(result) {
     const key = state.session + ':' + state.capture_id;
     if (sessionKey !== key) { if (drag?.id) { drag = null; busy = false; } selected = null; imagePoints = {}; rowsKey = ''; sessionKey = key; }
     imagePoints = result.image_points || {};
-    if(finishedPicking){selected=(state.points||[])[0]?.id || null;addedPoint=null;}
+    if(finishedPicking){selected=((state.points||[]).find(p=>!imagePoints[p.id])||(state.points||[])[0])?.id || null;addedPoint=null;}
     if(addedPoint)selected = addedPoint.id;
   }
   render();
@@ -102,7 +102,7 @@ function render() {
   if(fitResult?.source==='manual')$('overlay').disabled=true;
   $('pairCount').textContent = `${Object.keys(imagePoints).length} / ${points.length}`;
   $('alignmentStatus').textContent = review || pending ? t('모델 연결을 확인하세요.') : !fitResult ? t('계산 대기') : !fitResult.stable ? t('깊이가 다른 점을 추가하세요.') : fitResult.precision_passed ? t('대응점 일치') : t('대응점을 확인하세요.');
-  $('fitSummary').textContent = fitResult ? `${fitResult.source==='manual'?t('수동 카메라')+' · ':''}${t('최대 오차')} · ${fitResult.max_error_px?.toFixed(2) ?? t('재측정 필요')} ${t('원본 사진 px')}` : t('깊이가 다른 점 6개 이상');
+  $('fitSummary').textContent = fitResult ? `${fitResult.source==='manual'?t('수동 카메라')+' · ':''}${t('최대 오차')} · ${fitResult.max_error_px?.toFixed(2) ?? t('재측정 필요')} ${t('원본 사진 px')}` : points.filter(p=>imagePoints[p.id]).length >= 6 ? t('계산 대기') : t('깊이가 다른 점 6개 이상');
   if(adjusting)$('alignmentStatus').textContent=t('카메라 조정 중');
   else if(fitResult?.source==='manual')$('alignmentStatus').textContent=t('수동 카메라 저장됨');
   $('alignmentDot').classList.toggle('ready', !review && !!fitResult?.precision_passed);

@@ -31,6 +31,7 @@
     '원본 사진 px':'source photo px',
     '깊이가 다른 점 6개 이상':'At least 6 points at different depths',
     '깊이가 다른 모델 점 6개 이상을 연결하세요.':'Match at least 6 model points at different depths.',
+    '모델 점이 같은 평면이나 직선에 가깝습니다. 다른 깊이의 점을 추가하거나 교체하세요.':'Model points lie on or near one plane or line. Add or replace points at different depths.',
     '올바른 대응점을 선택하세요.':'Choose valid corresponding points.',
     '중복된 대응점을 확인하세요.':'Check duplicate corresponding points.',
     '카메라를 계산하지 못했습니다. 대응점을 확인하세요.':'Could not calculate a camera. Check the corresponding points.',
