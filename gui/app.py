@@ -490,17 +490,27 @@ class Api:
             return {'ok': False, 'error': str(error)}
 
     def _closing(self):
-        # A failed restore keeps the GUI available to retry; never close IronCAD.
-        if self._state and self._state.get("captured"):
-            if self._bridge.host not in available_hosts():
+        # Hide model markers even after Restore view, retaining the point data.
+        try:
+            with self._lock:
+                if not self._state or self._bridge.host not in available_hosts():
+                    return True
+                state = self._bridge.call('status')
+                if state['session'] != self._state['session']:
+                    return True
+                if state.get('photo_workflow_version') or state.get('captured'):
+                    closed = self._bridge.call('close_photo' if state.get('photo_workflow_version') else 'restore', state['session'])
+                    if state.get('captured') and not closed.get('restored'):
+                        raise ValueError('원래 보기 복원을 확인하지 못했습니다.')
+                    self._accept(closed)
                 return True
-            result = self.call("restore", self._state["session"])
-            if not result["ok"]:
-                try:
-                    self._window.evaluate_js("window.closeError("+json.dumps(result["error"])+")")
-                except Exception:
-                    pass
-                return False
+        except Exception as error:
+            # Keep the window available to retry if cleanup failed.
+            try:
+                self._window.evaluate_js("window.closeError("+json.dumps(str(error))+")")
+            except Exception:
+                pass
+            return False
 
     def _activate_host(self, host):
         with self._lock:

@@ -8,6 +8,43 @@ class FakeBridge:
     def __init__(self,state): self.state=state
     def call(self,*args): return self.state
 class ApiTests(unittest.TestCase):
+    def test_window_close_hides_markers_after_picking_or_restoring_without_deleting_points(self):
+        for captured in [True,False]:
+            state={'session':'a','capture_id':1,'captured':captured,'restored':not captured,
+                   'photo_workflow_version':1,'points':[{'id':'P1'}]}
+            closed={**state,'captured':False,'restored':True}
+            api=Api(42);api._accept(state);api._image={'path':'photo.png'};api._points={'P1':[12,34]}
+            with patch('app.available_hosts',return_value=[42]), patch.object(api._bridge,'call',side_effect=[state,closed]) as call:
+                self.assertTrue(api._closing())
+            self.assertEqual([unittest.mock.call('status'),unittest.mock.call('close_photo','a')],call.call_args_list)
+            self.assertEqual([{'id':'P1'}],api._state['points'])
+            self.assertEqual({'P1':[12,34]},api._points);self.assertEqual({'path':'photo.png'},api._image)
+
+    def test_window_close_skips_disconnected_host_and_other_document(self):
+        api=Api(42);api._accept({'session':'a','capture_id':1,'captured':True,'points':[{'id':'P1'}]})
+        with patch('app.available_hosts',return_value=[]), patch.object(api._bridge,'call') as call:
+            self.assertTrue(api._closing());call.assert_not_called()
+        other={'session':'b','capture_id':2,'captured':True,'photo_workflow_version':1,'points':[{'id':'P9'}]}
+        with patch('app.available_hosts',return_value=[42]), patch.object(api._bridge,'call',return_value=other) as call:
+            self.assertTrue(api._closing())
+        self.assertEqual([unittest.mock.call('status')],call.call_args_list)
+
+    def test_window_close_failure_keeps_window_and_correspondences_for_retry(self):
+        for captured in [True,False]:
+            state={'session':'a','capture_id':1,'captured':captured,'photo_workflow_version':1,'points':[{'id':'P1'}]}
+            api=Api(42);api._accept(state);api._points={'P1':[12,34]};api._window=unittest.mock.Mock()
+            with patch('app.available_hosts',return_value=[42]), patch.object(api._bridge,'call',side_effect=[state,RuntimeError('cleanup failed')]):
+                self.assertFalse(api._closing())
+            api._window.evaluate_js.assert_called_once_with('window.closeError("cleanup failed")')
+            self.assertEqual({'P1':[12,34]},api._points)
+
+    def test_window_close_older_host_still_restores_camera(self):
+        state={'session':'a','capture_id':1,'captured':True,'points':[]}
+        api=Api(42);api._accept(state)
+        with patch('app.available_hosts',return_value=[42]), patch.object(api._bridge,'call',side_effect=[state,{**state,'captured':False,'restored':True}]) as call:
+            self.assertTrue(api._closing())
+        self.assertEqual(('restore','a'),call.call_args.args)
+
     def test_reconnect_saved_scene_at_new_path_verifies_references_before_accepting(self):
         saved={'session':'old','capture_id':1,'document':r'C:\Temp\brick.ics','points':[{'id':'P1','vertex_id':10}]}
         current={'session':'new','capture_id':0,'document':r'C:\Models\brick.ics','points':[],'saved_point_reconnect':True}

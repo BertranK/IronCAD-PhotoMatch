@@ -26,6 +26,7 @@ the camera if needed, and save results as JSON. Restore view returns to
 the original camera. Clear XY removes photo coordinates only; model points
 stay. Clear all removes all point pairs and restarts numbering at P1.
 Each row's X deletes that model/photo pair.
+Closing PhotoMatch hides model labels without deleting model points.
 Moved scenes reconnect after saved vertex references are verified.
 Opening a scene allows up to five minutes for IronCAD to respond.
 

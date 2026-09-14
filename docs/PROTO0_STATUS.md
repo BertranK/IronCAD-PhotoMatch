@@ -5,6 +5,7 @@
 - IronCAD 2027 x64 add-in with a separate Python/WebView2 interface.
 - Fourteen image formats; first frame/page only. Source coordinates remain unchanged.
 - Six or more point pairs, stable numbered model markers, and per-pair deletion.
+- Closing PhotoMatch hides model markers and retains model points, including after Restore view.
 - Clear XY retains model points; Clear all removes pairs and restarts numbering at P1.
 - New model points select their cards; finishing picking selects the first unmatched photo card.
 - Step 03 is Calibration; Reconnect and delete buttons share a 30 px height.
@@ -24,6 +25,8 @@ projection, packaging, WebView2, and frozen-GUI checks. In live IronCAD, a scene
 saved out of a temporary folder was closed, reopened, and reconnected with all
 16 fixture points. Changed geometry was rejected without replacing references.
 Clear XY retained model points; Clear all removed pairs and kept the photo.
+Window-close regressions cover active/restored views, failed cleanup, disconnected
+hosts, and document switches without deleting correspondences.
 
 Native projection, Python/pipe, browser, and package-config checks run locally.
 Package creation also checks the frozen WebView2 window and image/scientific-library imports.
