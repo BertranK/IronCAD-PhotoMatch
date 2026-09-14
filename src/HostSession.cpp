@@ -52,14 +52,16 @@ void PhotoOverlay::Align(HWND host) {
     if(!::IsWindowVisible(host)||::IsIconic(::GetAncestor(host,GA_ROOT))){ShowWindow(SW_HIDE);return;}
     RECT r;::GetClientRect(host,&r);POINT p{0,0};::ClientToScreen(host,&p);
     if(image.IsNull()||r.right<=0||r.bottom<=0||imageRect.w<=0||imageRect.h<=0)return;
-    bool repaint=frame_.IsNull()||frame_.GetWidth()!=r.right||frame_.GetHeight()!=r.bottom;
+    photomatch::Rect target{std::round(imageRect.x),std::round(imageRect.y),std::round(imageRect.w),std::round(imageRect.h)};
+    bool repaint=frame_.IsNull()||frame_.GetWidth()!=r.right||frame_.GetHeight()!=r.bottom
+        ||drawnRect.x!=target.x||drawnRect.y!=target.y||drawnRect.w!=target.w||drawnRect.h!=target.h;
     if(!repaint&&position_==CPoint(p)&&IsWindowVisible())return;
     if(repaint){
         if(!frame_.IsNull())frame_.Destroy();
         if(!frame_.Create(r.right,r.bottom,32))throw std::runtime_error("Cannot allocate photo overlay");
         HDC memory=frame_.GetDC();CDC* dc=CDC::FromHandle(memory);
         dc->FillSolidRect(&r,RGB(1,2,3));dc->SetStretchBltMode(HALFTONE);SetBrushOrgEx(memory,0,0,nullptr);
-        int x=int(std::round(imageRect.x)),y=int(std::round(imageRect.y)),w=int(std::round(imageRect.w)),h=int(std::round(imageRect.h));
+        int x=int(target.x),y=int(target.y),w=int(target.w),h=int(target.h);
         BOOL drawn=image.Draw(memory,x,y,w,h);dc->Draw3dRect(x,y,w,h,RGB(0,255,255),RGB(0,255,255));
         GdiFlush();frame_.ReleaseDC();if(!drawn)throw std::runtime_error("Cannot draw photo overlay");
         // Make the letterbox transparent; all visible pixels have straight alpha 255.
@@ -73,7 +75,7 @@ void PhotoOverlay::Align(HWND host) {
     HDC memory=frame_.GetDC();POINT source{0,0};SIZE size{r.right,r.bottom};BLENDFUNCTION blend{AC_SRC_OVER,0,150,AC_SRC_ALPHA};
     BOOL updated=::UpdateLayeredWindow(GetSafeHwnd(),nullptr,&p,&size,memory,&source,0,&blend,ULW_ALPHA);
     frame_.ReleaseDC();if(!updated)throw std::runtime_error("Cannot update photo overlay");
-    position_=CPoint(p);ShowWindow(SW_SHOWNOACTIVATE);
+    drawnRect=target;position_=CPoint(p);ShowWindow(SW_SHOWNOACTIVATE);
 }
 
 BEGIN_MESSAGE_MAP(HostSession,CWnd)
@@ -273,8 +275,24 @@ void HostSession::Draw(IZRender* render) {
     for(size_t i=0;i<points_.size();++i){const auto& p=points_[i];LONG ax,ay,az,gx,gy,gz;
         checked(render->XformWorldToView2(p.apiPoint.x,p.apiPoint.y,p.apiPoint.z,&ax,&ay,&az));
         checked(render->XformWorldToView2(p.transformedPoint.x,p.transformedPoint.y,p.transformedPoint.z,&gx,&gy,&gz));
-        if(i)record<<',';record<<"{\"id\":"<<quote("P"+std::to_string(i+1))<<",\"api_as_world_px\":["<<ax*sx<<','<<ay*sy<<"],\"transformed_as_world_px\":["<<gx*sx<<','<<gy*sy<<"]}";
-    }record<<"],\"projection_diagnostics\":["<<diagnostics.str()<<"]}";sampleRecords_.push_back(record.str());auto result=fit(observations_);
+        if(i)record<<',';record<<"{\"id\":"<<quote("P"+std::to_string(i+1))<<",\"api_as_world_px\":["<<ax*sx<<','<<ay*sy<<"],\"transformed_as_world_px\":["<<gx*sx<<','<<gy*sy<<']';
+        double dx=0,dy=0,dz=0;HRESULT hr=render->XformModelToView3(p.transformedPoint.x,p.transformedPoint.y,p.transformedPoint.z,&dx,&dy,&dz);
+        record<<",\"model_double_hresult\":"<<hr;
+        if(SUCCEEDED(hr)&&std::isfinite(dx)&&std::isfinite(dy))record<<",\"model_double_physical_px\":["<<dx*sx<<','<<dy*sy<<']';
+        record<<'}';
+    }record<<"],\"projection_diagnostics\":["<<diagnostics.str()<<"],\"inverse_world_model_roundtrip\":[";
+    // Diagnose the model/world frame without changing the rendering matrix.
+    // Two depth planes prevent a single-plane coincidence from proving identity.
+    for(int i=0;i<8;++i){LONG x=(i&1)?3*rw/4:rw/4,y=(i&2)?3*rh/4:rh/4,z=(i&4)?1:0;
+        double wx=0,wy=0,wz=0,dx=0,dy=0,dz=0;
+        HRESULT inverse=render->XformViewToWorld2(x,y,z,&wx,&wy,&wz),forward=E_FAIL;
+        if(SUCCEEDED(inverse)&&std::isfinite(wx)&&std::isfinite(wy)&&std::isfinite(wz))
+            forward=render->XformModelToView3(wx,wy,wz,&dx,&dy,&dz);
+        if(i)record<<',';record<<"{\"view\":["<<x<<','<<y<<','<<z<<"],\"inverse_hresult\":"<<inverse<<",\"forward_hresult\":"<<forward;
+        if(SUCCEEDED(forward)&&std::isfinite(dx)&&std::isfinite(dy)&&std::isfinite(dz))
+            record<<",\"world\":["<<wx<<','<<wy<<','<<wz<<"],\"model_view\":["<<dx<<','<<dy<<','<<dz<<']';
+        record<<'}';
+    }record<<"]}";sampleRecords_.push_back(record.str());auto result=fit(observations_);
     CString message;message.Format(L"%zu projections; best %s, max %.4f physical px; %s",observations_.size(),
         CString(CA2W(name(result[0].convention).c_str())).GetString(),result[0].maxError,
         resolved(result)?L"FOV identified":L"UNRESOLVED: change aspect ratio / inspect axes");Log(message);
@@ -410,7 +428,8 @@ nlohmann::json HostSession::Snapshot() {
     out["logs"]=logs_;out["host_pid"]=GetCurrentProcessId();out["document"]=nullptr;out["camera"]=nullptr;
     out["saved_point_reconnect"]=true;
     out["projection_coordinate_rule"]="sdk_pixel_endpoints_truncate_then_physical_scale";
-    if(overlay_.GetSafeHwnd()){auto r=overlay_.imageRect;out["photo_rectangle_physical"]={r.x,r.y,r.w,r.h};out["photo_render_size"]={lastRenderW_,lastRenderH_};}
+    if(overlay_.GetSafeHwnd()){auto r=overlay_.imageRect;out["photo_rectangle_physical"]={r.x,r.y,r.w,r.h};
+        auto d=overlay_.drawnRect;out["photo_drawn_rectangle_physical"]={d.x,d.y,d.w,d.h};out["photo_render_size"]={lastRenderW_,lastRenderH_};}
     if(observedDoc_){CComBSTR name;checked(observedDoc_->get_Name(&name));out["document"]=utf8(name);}
     if(captured_&&cameras_){IZCameraPtr active;checked(cameras_->get_ActiveCamera(&active));out["camera"]=json::parse(jsonCameraState(ReadCamera(active)));
         CRect rect=clientRect(GraphicsWindow()),hostRect;::GetClientRect(GraphicsWindow(),&hostRect);

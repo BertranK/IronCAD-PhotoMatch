@@ -182,4 +182,20 @@ class ApiTests(unittest.TestCase):
             result=api.preview_fit()
             self.assertFalse(result['fit']['sdk_raster_passed'])
 
+    def test_screen_comparison_uses_committed_draw_bounds(self):
+        api,state=self.fitted_api()
+        state['photo_rectangle_physical']=[.49,.49,749.6,749.6]
+        state['photo_drawn_rectangle_physical']=[0,0,750,750]
+        state['viewport']=state['photo_render_size']=[1000,1000]
+        state['projection_coordinate_rule']='sdk_pixel_endpoints_truncate_then_physical_scale'
+        api._points={id:[100,200] for id in api._fit['ids']}
+        state['measurements']=[{'picked_point_projections':[
+            {'id':id,'transformed_as_world_px':[100,200]} for id in api._fit['ids']]}]
+        with patch.object(api._bridge,'call',return_value=state):
+            result=api.preview_fit()
+            self.assertTrue(result['ok'],result)
+            self.assertEqual(0,result['fit']['screen_max_error_px'])
+            self.assertEqual([0,0,750,750],result['fit']['screen_image_rectangle'])
+            self.assertTrue(result['fit']['screen_image_rectangle_verified'])
+
 if __name__=='__main__':unittest.main()

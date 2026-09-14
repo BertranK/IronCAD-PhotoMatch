@@ -31,6 +31,7 @@ class PhotoOverlay : public CWnd {
 public:
     CImage image;
     photomatch::Rect imageRect{};
+    photomatch::Rect drawnRect{};
     void Open(const CString& path,HWND host);
     void Align(HWND host);
     void Clear();

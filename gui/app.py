@@ -186,7 +186,7 @@ class Api:
                 measure()
                 self._bridge.call('photo', session, {'path': self._image['overlay_path'], 'focal_px': result['focal_px']})
                 state = measure()
-                rect = state['photo_rectangle_physical']
+                rect = state.get('photo_drawn_rectangle_physical', state['photo_rectangle_physical'])
                 projections = {p['id']: p['transformed_as_world_px'] for p in state['measurements'][-1]['picked_point_projections']}
                 if state.get('projection_coordinate_rule') != 'sdk_pixel_endpoints_truncate_then_physical_scale':
                     raise ValueError('Unsupported IronCAD projection coordinate rule')
@@ -203,6 +203,8 @@ class Api:
                 result['sdk_raster_max_error_px'] = max(errors)
                 result['sdk_raster_passed'] = max(errors) <= 1
                 result['screen_error_coordinate_rule'] = state['projection_coordinate_rule']
+                result['screen_image_rectangle'] = rect
+                result['screen_image_rectangle_verified'] = 'photo_drawn_rectangle_physical' in state
                 # Raster agreement diagnoses SDK rounding; it must not turn a
                 # failed continuous photo-alignment measurement into a pass.
                 result['screen_max_error_px'] = max(continuous)
