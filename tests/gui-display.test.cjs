@@ -95,11 +95,11 @@ test('delete removes only its pair and disables fitting below six matches', asyn
     page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(preview=>{
       window.testPoints=Object.fromEntries(Array.from({length:6},(_,i)=>['P'+(i+1),[100+i*150,300]]));
-      window.deleted=[];window.fitCount=0;window.opacityCalls=[];
-      window.testState={session:'a',capture_id:1,captured:true,document:'brick.ics',point_delete_supported:true,point_clear_supported:true,photo_opacity:150/255,
+      window.deleted=[];window.fitCount=0;window.opacityCalls=[];window.previewCalls=[];
+      window.testState={session:'a',capture_id:1,captured:true,document:'brick.ics',point_delete_supported:true,point_clear_supported:true,photo_opacity:150/255,photo_preview_enabled:true,
         points:Object.keys(testPoints).map(id=>({id,object_name:'Brick',api_coordinates:[1,2,3],transformed_coordinates:[1,2,3]}))};
       const result=()=>({ok:true,state:structuredClone(testState),image_points:structuredClone(testPoints),fit:null});
-      window.pywebview={api:{preferences:async()=>({theme:'dark',language:'en'}),call:async(command,session,args)=>{if(command==='photo_opacity'){opacityCalls.push([session,args.opacity]);testState.photo_opacity=args.opacity;}return result();},
+      window.pywebview={api:{preferences:async()=>({theme:'dark',language:'en'}),call:async(command,session,args)=>{if(command==='photo_opacity'){opacityCalls.push([session,args.opacity]);testState.photo_opacity=args.opacity;}if(command==='photo_preview'){previewCalls.push([session,args.enabled]);testState.photo_preview_enabled=args.enabled;}return result();},
         open_project:async()=>({...result(),image:{preview,width:1600,height:1000,name:'reference.png'}}),
         delete_point:async(session,capture,id)=>{deleted.push([session,capture,id]);testState.points=testState.points.filter(p=>p.id!==id);delete testPoints[id];return result();},
         clear_points:async(session,capture,all)=>{deleted.push([session,capture,all?'all':'photo']);testPoints={};if(all){testState.points=[];testState.capture_id++;}return result();},
@@ -122,6 +122,26 @@ test('delete removes only its pair and disables fitting below six matches', asyn
       assert.equal(await page.locator('#photoOpacityValue').textContent(),value+'%');
     }
     assert.deepEqual(await page.evaluate(()=>opacityCalls),[['a',0],['a',.25],['a',1]]);
+    const toggle=page.getByRole('button',{name:'Image Preview',exact:true});
+    const toggleBox=await toggle.boundingBox(),opacityBox=await page.locator('#photoOpacity').boundingBox();
+    assert.ok(toggleBox.y+toggleBox.height<=opacityBox.y);
+    assert.equal(await toggle.getAttribute('aria-pressed'),'true');
+    await toggle.click();await page.waitForFunction(()=>!busy);
+    assert.equal(await toggle.getAttribute('aria-pressed'),'false');
+    assert.equal(await page.locator('#imagePreviewState').textContent(),'Off');
+    assert.equal(await page.locator('#photoOpacity').inputValue(),'100');
+    await page.locator('#photoOpacity').evaluate(el=>{el.value=25;el.dispatchEvent(new Event('input'));});
+    await page.waitForFunction(()=>!busy&&state.photo_opacity===.25);
+    assert.equal(await toggle.getAttribute('aria-pressed'),'false');
+    await page.evaluate(()=>{state.adjusting_camera=true;testState.adjusting_camera=true;render();});
+    await toggle.click();await page.waitForFunction(()=>!busy);
+    assert.equal(await toggle.getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('#imagePreviewState').textContent(),'On');
+    assert.equal(await page.locator('#photoOpacity').inputValue(),'25');
+    assert.deepEqual(await page.evaluate(()=>previewCalls),[['a',false],['a',true]]);
+    await page.evaluate(()=>{state.adjusting_camera=false;testState.adjusting_camera=false;delete state.photo_preview_enabled;render();});
+    assert.equal(await toggle.isDisabled(),true);
+    await page.evaluate(()=>{state.photo_preview_enabled=true;render();});
     assert.deepEqual(await page.evaluate(()=>imagePoints),originalPoints);
     await page.getByRole('button',{name:'P3 · Delete point pair',exact:true}).click();
     await page.waitForFunction(()=>!busy);

@@ -21,6 +21,7 @@ Existing photo matches stay saved when adding more model points.
 Planar points are supported with Estimate optical center off. For ambiguous
 views, add points at different depths.
 Photo opacity controls the IronCAD overlay from 0% to 100%.
+Image Preview above Opacity turns the overlay on/off without changing opacity.
 Automatic recalculate is enabled by default. Preview in IronCAD, adjust
 the camera if needed, and save results as JSON. Restore view returns to
 the original camera. Clear XY removes photo coordinates only; model points

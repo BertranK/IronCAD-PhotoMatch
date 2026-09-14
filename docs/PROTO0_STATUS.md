@@ -11,6 +11,7 @@
 - Step 03 is Calibration; Reconnect and delete buttons share a 30 px height.
 - Automatic camera recalculation, optional optical-center estimation, and preview.
 - Photo opacity from 0% to 100%, independent of camera and point coordinates.
+- Image Preview toggles overlay visibility above Opacity, retaining opacity during recalculation and camera adjustment.
 - Manual camera adjustment, save/cancel, JSON results, and original-view restoration.
 - Same-model references persist when verifiable; ambiguous/deleted vertices need reconnection.
 - Document changes preserve photo matches for review. Reconnection never guesses a nearest vertex.

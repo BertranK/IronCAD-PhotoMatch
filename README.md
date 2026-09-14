@@ -12,7 +12,7 @@ Prototype: alignment accuracy is still being validated. Lens correction is not i
 - See matching point numbers on the model; use each row's × button to delete a pair.
 - Closing PhotoMatch hides model labels without deleting model points.
 - **Clear XY** removes photo coordinates; **Clear all** removes all point pairs and restarts at P1.
-- Preview and adjust the camera in IronCAD; control photo opacity with a slider.
+- Preview and adjust the camera in IronCAD; toggle **Image Preview** or adjust photo opacity.
 - Save and load results as JSON.
 - Korean/English and light/dark themes.
 

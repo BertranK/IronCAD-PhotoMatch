@@ -75,7 +75,7 @@ class Api:
     def call(self, command, session="", args=None):
         try:
             with self._lock:
-                if command not in {"status", "capture", "pick", "stop_pick", "apply", "measure", "photo", "photo_opacity", "background", "restore", "rebind_point"}:
+                if command not in {"status", "capture", "pick", "stop_pick", "apply", "measure", "photo", "photo_opacity", "photo_preview", "background", "restore", "rebind_point"}:
                     raise ValueError("지원하지 않는 작업입니다.")
                 if self._review and command not in {"status", "restore"}:
                     raise ValueError("모델 연결을 확인하세요.")

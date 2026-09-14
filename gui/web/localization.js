@@ -1,6 +1,7 @@
 (function (root) {
   const en = {
     '사진 불투명도':'Photo opacity',
+    '이미지 미리보기':'Image Preview', '켜짐':'On', '꺼짐':'Off',
     '자동 재계산':'Automatic recalculate',
     '다시 연결':'Reconnect',
     'IronCAD에서 대응하는 꼭짓점을 선택하세요.':'Pick the corresponding vertex in IronCAD.',

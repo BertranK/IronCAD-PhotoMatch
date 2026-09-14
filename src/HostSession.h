@@ -31,6 +31,7 @@ class PhotoOverlay : public CWnd {
 public:
     CImage image;
     BYTE opacity=150;
+    bool enabled=true;
     photomatch::Rect imageRect{};
     photomatch::Rect drawnRect{};
     void Open(const CString& path,HWND host);

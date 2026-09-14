@@ -8,6 +8,18 @@ class FakeBridge:
     def __init__(self,state): self.state=state
     def call(self,*args): return self.state
 class ApiTests(unittest.TestCase):
+    def test_preview_toggle_preserves_camera_fit_points_and_opacity(self):
+        api,state=self.fitted_api();state.update(photo_preview_enabled=True,photo_opacity=.25,camera={'field':1.2})
+        original_fit=api._fit;original_points=api._points.copy();camera=state['camera'].copy()
+        for enabled in [False,True]:
+            with patch.object(api._bridge,'call',return_value={**state,'photo_preview_enabled':enabled}) as call:
+                result=api.call('photo_preview','a',{'enabled':enabled})
+            self.assertTrue(result['ok'],result.get('error'))
+            call.assert_called_once_with('photo_preview','a',{'enabled':enabled})
+            self.assertEqual(enabled,result['state']['photo_preview_enabled']);self.assertEqual(.25,result['state']['photo_opacity'])
+            self.assertEqual(camera,result['state']['camera']);self.assertIs(original_fit,result['fit'])
+            self.assertEqual(original_points,result['image_points'])
+
     def test_window_close_hides_markers_after_picking_or_restoring_without_deleting_points(self):
         for captured in [True,False]:
             state={'session':'a','capture_id':1,'captured':captured,'restored':not captured,

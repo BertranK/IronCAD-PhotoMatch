@@ -75,6 +75,9 @@ function render() {
   $('fitCamera').disabled = busy || !connected || !photo || Object.keys(imagePoints).length < 6 || pending;
   $('overlay').disabled = busy || !!review || !connected || !photo || !fitResult?.stable;
   $('photoOpacity').disabled = busy || !!review || !connected || !photo || state?.photo_opacity == null;
+  $('imagePreview').disabled = busy || !!review || !connected || !photo || state?.photo_preview_enabled == null;
+  $('imagePreview').setAttribute('aria-pressed', String(state?.photo_preview_enabled ?? true));
+  $('imagePreviewState').textContent = t(state?.photo_preview_enabled === false ? '꺼짐' : '켜짐');
   if(!opacityTimer){$('photoOpacity').value=Math.round((state?.photo_opacity ?? 150/255)*100);$('photoOpacityValue').textContent=$('photoOpacity').value+'%';}
   $('save').disabled = busy || !connected || !(review || state)?.original_camera;
   $('openImage').disabled = $('openEmpty').disabled = busy;
@@ -234,6 +237,7 @@ $('apply').onclick = () => {
 async function fitAction(method,...args) {if(!api||busy)return;busy=true;calculating=method==='fit_points';render();try{accept(await api[method](...args));}catch(error){toast(t(error.message));}finally{busy=false;calculating=false;render();}}
 $('fitCamera').onclick=()=>fitAction('fit_points',$('estimatePrincipal').checked);
 $('overlay').onclick=()=>fitAction('preview_fit');
+$('imagePreview').onclick=()=>action('photo_preview',{enabled:!state?.photo_preview_enabled});
 $('photoOpacity').oninput=()=>{
   clearTimeout(opacityTimer);$('photoOpacityValue').textContent=$('photoOpacity').value+'%';
   const value=Number($('photoOpacity').value)/100;

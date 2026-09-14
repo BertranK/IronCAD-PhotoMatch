@@ -61,7 +61,7 @@ void PhotoOverlay::Align(HWND host) {
     photomatch::Rect target{std::round(imageRect.x),std::round(imageRect.y),std::round(imageRect.w),std::round(imageRect.h)};
     bool repaint=frame_.IsNull()||frame_.GetWidth()!=r.right||frame_.GetHeight()!=r.bottom
         ||drawnRect.x!=target.x||drawnRect.y!=target.y||drawnRect.w!=target.w||drawnRect.h!=target.h;
-    if(!repaint&&position_==CPoint(p)&&IsWindowVisible()&&opacity==drawnOpacity_)return;
+    if(!repaint&&position_==CPoint(p)&&bool(IsWindowVisible())==enabled&&opacity==drawnOpacity_)return;
     if(repaint){
         if(!frame_.IsNull())frame_.Destroy();
         if(!frame_.Create(r.right,r.bottom,32))throw std::runtime_error("Cannot allocate photo overlay");
@@ -81,7 +81,7 @@ void PhotoOverlay::Align(HWND host) {
     HDC memory=frame_.GetDC();POINT source{0,0};SIZE size{r.right,r.bottom};BLENDFUNCTION blend{AC_SRC_OVER,0,opacity,AC_SRC_ALPHA};
     BOOL updated=::UpdateLayeredWindow(GetSafeHwnd(),nullptr,&p,&size,memory,&source,0,&blend,ULW_ALPHA);
     frame_.ReleaseDC();if(!updated)throw std::runtime_error("Cannot update photo overlay");
-    drawnRect=target;drawnOpacity_=opacity;position_=CPoint(p);ShowWindow(SW_SHOWNOACTIVATE);
+    drawnRect=target;drawnOpacity_=opacity;position_=CPoint(p);ShowWindow(enabled?SW_SHOWNOACTIVATE:SW_HIDE);
 }
 
 BEGIN_MESSAGE_MAP(HostSession,CWnd)
@@ -615,6 +615,7 @@ nlohmann::json HostSession::Snapshot() {
     out["scene_project_supported"]=true;
     out["photo_workflow_version"]=1;out["model_revision"]=modelRevision_;
     out["photo_opacity"]=overlay_.opacity/255.;
+    out["photo_preview_enabled"]=overlay_.enabled;
     out["adjusting_camera"]=adjusting_;out["manual_camera"]=json::parse(manualRecord_);
     out["photo_principal_px"]={imagePrincipal_.x,imagePrincipal_.y};
     out["projection_coordinate_rule"]="sdk_pixel_endpoints_truncate_then_physical_scale";
@@ -699,6 +700,9 @@ std::string HostSession::Request(const std::string& text) {
         else if(command=="stop_pick")StopPicking();
         else if(command=="restore")Restore();
         else if(command=="close_photo")ClosePhoto();
+        else if(command=="photo_preview"){
+            overlay_.enabled=args.at("enabled").get<bool>();UpdateOverlay();
+        }
         else if(command=="photo_opacity"){
             const double value=args.at("opacity").get<double>();
             if(!std::isfinite(value)||value<0||value>1)throw std::runtime_error("Photo opacity must be between 0 and 1");
